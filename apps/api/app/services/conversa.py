@@ -14,6 +14,7 @@ from app.channels.base import InboundMessage, OutboundMessage
 from app.enums import Canal, Direcao, SituacaoCaso
 from app.models import Caso, Conversa, Mensagem
 from app.services import (
+    agrupamento,
     atencao,
     auditoria,
     contrato,
@@ -117,6 +118,10 @@ async def _rotear(
 
     if resultado.caso is not None:
         resultado.caso.conversa_id = conversa.id
+        # Guarda a pergunta e seu vetor: e o insumo do Andar 3, e o
+        # momento do atendimento e a unica hora em que o texto original
+        # esta a mao.
+        await agrupamento.indexar_pergunta(db, resultado.caso, entrada.texto)
         if resultado.escalou:
             _deduplicar(db, resultado.caso)
         else:
