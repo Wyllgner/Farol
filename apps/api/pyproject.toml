@@ -30,5 +30,12 @@ line-length = 100
 target-version = "py312"
 exclude = ["alembic/versions"]
 
+[tool.ruff.lint.per-file-ignores]
+# Conteudo dos documentos e prosa longa: concatenacao implicita e a forma legivel.
+"app/seed/documentos.py" = ["ISC004"]
+# Depends() em argumento padrao e o idioma do FastAPI.
+"app/api/*.py" = ["B008"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
