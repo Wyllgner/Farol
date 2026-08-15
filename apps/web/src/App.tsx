@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import EspelhoWhatsApp from './EspelhoWhatsApp'
+import ComoDecide from './ComoDecide'
 import FilaServidor from './FilaServidor'
+import Indicadores from './Indicadores'
+import RadarCausas from './RadarCausas'
 import WidgetAva from './WidgetAva'
 
-type Superficie = 'whatsapp' | 'ava' | 'fila'
+type Superficie = 'whatsapp' | 'ava' | 'fila' | 'radar' | 'indicadores' | 'decide'
 
 /** Participante fictício com 2FA pendente — aciona a oferta de acompanhamento. */
 const HANDLE_DEMO = '+556990000001'
@@ -36,14 +39,29 @@ export default function App() {
             <Aba ativa={superficie === 'fila'} onClick={() => setSuperficie('fila')}>
               Fila do Servidor
             </Aba>
+            <Aba ativa={superficie === 'radar'} onClick={() => setSuperficie('radar')}>
+              Radar de Causas
+            </Aba>
+            <Aba
+              ativa={superficie === 'indicadores'}
+              onClick={() => setSuperficie('indicadores')}
+            >
+              Indicadores
+            </Aba>
+            <Aba ativa={superficie === 'decide'} onClick={() => setSuperficie('decide')}>
+              Como decide
+            </Aba>
           </nav>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-10">
         {superficie === 'fila' && <FilaServidor />}
+        {superficie === 'radar' && <RadarCausas />}
+        {superficie === 'indicadores' && <Indicadores />}
+        {superficie === 'decide' && <ComoDecide />}
 
-        {superficie !== 'fila' && (
+        {(superficie === 'whatsapp' || superficie === 'ava') && (
         <label className="mb-8 block max-w-md">
           <span className="text-sm font-medium text-neutro-600">
             Identificação no canal
