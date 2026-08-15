@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.enums import Canal, Categoria, DecisaoTriagem, SituacaoCaso
 from app.llm import obter_provider
 from app.models import Caso
-from app.services import auditoria, dossie
+from app.services import auditoria, dossie, ensaio
 from app.services.ancoragem import Ancoragem, verificar
 from app.services.conhecimento import buscar
 from app.services.estado import montar as montar_estado
@@ -45,10 +45,21 @@ class Atendimento:
     ancoragem: Ancoragem | None = None
     caso: Caso | None = None
     acoes_rapidas: list[str] = field(default_factory=list)
+    # Retido pelo Modo Ensaio: a resposta foi gerada mas nao enviada.
+    retido: bool = False
 
     @property
     def escalou(self) -> bool:
         return self.decisao.escala
+
+    @property
+    def foi_entregue(self) -> bool:
+        """A resposta chegou ao participante?
+
+        So o que foi entregue abre contrato de resolucao: perguntar
+        "resolveu?" sobre uma resposta que nunca saiu nao faz sentido.
+        """
+        return not self.escalou and not self.retido
 
 
 async def atender(
@@ -179,6 +190,24 @@ async def atender(
             rascunho=gerada.texto,
         )
 
+    # Modo Ensaio (secao 7.1): a resposta existe, mas nao sai. O servidor
+    # ve o que o FAROL teria respondido e aprova ou corrige. Avaliado
+    # depois da triagem porque o caso que ja escalaria vai para humano de
+    # qualquer forma — reter duas vezes seria ruido.
+    if ensaio.deve_reter(db, categoria):
+        return _reter_em_ensaio(
+            db,
+            pergunta=pergunta,
+            canal=canal,
+            categoria=categoria,
+            identidade=identidade,
+            estado=estado,
+            trechos=trechos,
+            decisao=decisao,
+            ancoragem=ancoragem,
+            rascunho=gerada.texto,
+        )
+
     resposta = gerada.texto
     acoes = ["Falar com um servidor"]
     if decisao.decisao is DecisaoTriagem.RESPONDE_COM_OFERTA_HUMANA:
@@ -208,6 +237,74 @@ async def atender(
         ancoragem=ancoragem,
         caso=caso,
         acoes_rapidas=acoes,
+    )
+
+
+def _reter_em_ensaio(
+    db: Session,
+    *,
+    pergunta: str,
+    canal: Canal,
+    categoria: Categoria,
+    identidade: Identidade,
+    estado: dict,
+    trechos: list[dict],
+    decisao: Decisao,
+    ancoragem: Ancoragem,
+    rascunho: str,
+) -> Atendimento:
+    """Gera, registra e NAO envia. O servidor decide."""
+    pasta = dossie.montar(
+        pergunta=pergunta,
+        categoria=categoria,
+        identidade=identidade,
+        estado=estado,
+        trechos=trechos,
+        decisao=decisao,
+        ancoragem=ancoragem,
+        rascunho=rascunho,
+    )
+    pasta["resumo"] = (
+        f"[MODO ENSAIO] {pasta.get('resumo', '')} — confira se a resposta "
+        f"gerada esta correta antes de enviar."
+    )
+    pasta["motivo_do_escalonamento"] = (
+        f"categoria '{categoria}' ainda nao liberada para resposta automatica"
+    )
+
+    caso = Caso(
+        participante_id=identidade.participante.id if identidade.participante else None,
+        canal=canal,
+        categoria=categoria,
+        sensivel=False,
+        confianca=round(decisao.confianca, 3),
+        decisao_triagem=decisao.decisao,
+        situacao=SituacaoCaso.ESCALADO,
+        dossie=pasta,
+        rascunho_resposta=rascunho,
+        em_ensaio=True,
+        score_consequencia=dossie.score_consequencia(categoria, estado),
+    )
+    db.add(caso)
+    db.flush()
+
+    auditoria.registrar(
+        db,
+        "retido_em_ensaio",
+        {"categoria": str(categoria), "resposta_gerada": rascunho},
+        caso_id=caso.id,
+    )
+
+    return Atendimento(
+        resposta=ensaio.AVISO_AO_PARTICIPANTE,
+        decisao=decisao,
+        categoria=categoria,
+        identidade=identidade,
+        trechos=trechos,
+        ancoragem=ancoragem,
+        caso=caso,
+        acoes_rapidas=[],
+        retido=True,
     )
 
 

@@ -122,7 +122,7 @@ async def _rotear(
         # momento do atendimento e a unica hora em que o texto original
         # esta a mao.
         await agrupamento.indexar_pergunta(db, resultado.caso, entrada.texto)
-        if resultado.escalou:
+        if not resultado.foi_entregue:
             _deduplicar(db, resultado.caso)
         else:
             # Todo caso respondido nasce com contrato aberto: ele so
@@ -135,7 +135,7 @@ async def _rotear(
 
     # Procedimento que ja falhou como texto merece acompanhamento, nao
     # mais texto. So oferecemos quando o estado mostra que faz sentido.
-    if not resultado.escalou:
+    if resultado.foi_entregue:
         estado_participante = montar_estado(db, resultado.identidade)
         if fluxo_guiado.deve_oferecer(resultado.categoria, estado_participante):
             texto = f"{texto}\n\n{OFERTA_FLUXO}"
