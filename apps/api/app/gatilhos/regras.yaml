@@ -1,0 +1,124 @@
+# Gatilhos proativos do FAROL (secao 4.2).
+#
+# Este arquivo e editavel por servidor, sem codigo. E a tela "Como o FAROL
+# decide" (secao 7.3) publica exatamente o que esta aqui: o motor de
+# eventos nao pode ser caixa-preta nem para o servidor nem para o gestor.
+#
+# custo_atendimento_min: quanto custa, em minutos de equipe, o atendimento
+#   que esta mensagem tenta evitar. Alimenta o valor esperado com que o
+#   orcamento de atencao decide o que enviar.
+# probabilidade_evitar: estimativa inicial de que a mensagem evite o
+#   atendimento. E so o ponto de partida — a verificacao de efeito
+#   substitui esse numero pela taxa medida assim que houver amostra.
+
+gatilhos:
+  - chave: nunca_acessou
+    titulo: Inscrito ha mais de 2 dias e nunca acessou
+    ativo: true
+    aresta: inscricao
+    categoria: acesso
+    condicoes:
+      nunca_acessou: true
+      dias_desde_inscricao_min: 2
+    custo_atendimento_min: 8
+    probabilidade_evitar: 0.45
+    mensagem: |
+      Oi, {primeiro_nome}. Vi que sua inscricao em *{curso}* foi confirmada,
+      mas o primeiro acesso ainda nao aconteceu.
+
+      O acesso e em ava.emeron.jus.br, com seu CPF (so numeros) e a senha
+      que foi enviada no e-mail de boas-vindas.
+    acoes:
+      - Nao consegui entrar
+
+  - chave: sem_2fa
+    titulo: Acessou mas nao configurou a autenticacao em dois fatores
+    ativo: true
+    aresta: primeiro_acesso
+    categoria: 2fa
+    condicoes:
+      ja_acessou: true
+      dois_fatores_configurado: false
+    custo_atendimento_min: 12
+    probabilidade_evitar: 0.40
+    mensagem: |
+      Oi, {primeiro_nome}. Falta configurar a autenticacao em dois fatores
+      em *{curso}* — sem ela o acesso pode ser bloqueado no proximo login.
+
+      Sao cinco passos rapidos e eu posso te acompanhar em cada um.
+    acoes:
+      - Sim, me acompanhe
+
+  - chave: prazo_apertado
+    titulo: Faltam 3 dias para o prazo e progresso abaixo de 70%
+    ativo: true
+    aresta: atividades
+    categoria: prazo
+    condicoes:
+      dias_ate_prazo_max: 3
+      progresso_max: 70
+    custo_atendimento_min: 10
+    probabilidade_evitar: 0.55
+    mensagem: |
+      Oi, {primeiro_nome}. O prazo de *{curso}* termina em {dias_ate_prazo}
+      dia(s) e seu progresso esta em {progresso}%.
+
+      As atividades pendentes ficam na pagina do curso, no Relatorio de
+      Progresso. Depois do prazo o envio e encerrado automaticamente.
+    acoes:
+      - Ver o que falta
+
+  - chave: webconferencia_hoje
+    titulo: Webconferencia proxima
+    ativo: true
+    aresta: consumo_conteudo
+    categoria: webconferencia
+    condicoes:
+      webconferencia_em_horas_max: 24
+    custo_atendimento_min: 6
+    probabilidade_evitar: 0.60
+    mensagem: |
+      Oi, {primeiro_nome}. Hoje tem encontro ao vivo de *{curso}*.
+
+      O link fica na pagina do curso, no modulo da data do encontro, com
+      icone de camera. A sala abre 15 minutos antes.
+    acoes:
+      - Nao encontrei o link
+
+  - chave: certificado_parado
+    titulo: Certificado liberado e nao retirado ha mais de 2 dias
+    ativo: true
+    aresta: certificado
+    categoria: certificado
+    condicoes:
+      certificado: liberado
+      dias_desde_liberacao_min: 2
+    custo_atendimento_min: 7
+    probabilidade_evitar: 0.65
+    mensagem: |
+      Oi, {primeiro_nome}. Seu certificado de *{curso}* ja esta liberado e
+      ainda nao foi emitido.
+
+      E so abrir a pagina do curso e clicar em *Emitir certificado*.
+    acoes:
+      - Nao aparece o botao
+
+# Limites do laco de verificacao (secao 4.4).
+verificacao:
+  # Prazo da hipotese: "esta pessoa nao abrira atendimento sobre este
+  # assunto nos proximos N dias".
+  janela_dias: 7
+  # Abaixo desta taxa de antecipacao efetiva o gatilho e desativado.
+  limiar_efetividade: 0.25
+  # Amostra minima antes de julgar. Desativar um gatilho por causa de dois
+  # casos seria o mesmo erro do banner, so que ao contrario.
+  amostra_minima: 10
+
+# Orcamento de atencao (secao 4.3).
+orcamento:
+  # Interrupcoes disponiveis por participante, por curso.
+  saldo_inicial: 4
+  # Nao gastamos o orcamento com mensagem de valor baixo.
+  valor_esperado_minimo: 2.0
+  # Quem ignora sistematicamente recebe menos; quem interage recebe mais.
+  ignoradas_para_reduzir: 3
