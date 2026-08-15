@@ -1,4 +1,4 @@
-.PHONY: setup db dev api web migrate revision reset test lint
+.PHONY: setup db dev api web migrate revision seed reset test lint
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -22,6 +22,9 @@ migrate: db ## Aplica as migrations
 revision: ## Gera migration a partir dos models: make revision m="descricao"
 	cd apps/api && ../../$(VENV)/bin/alembic revision --autogenerate -m "$(m)"
 
+seed: migrate ## Popula o banco com o mundo ficticio
+	cd apps/api && ../../$(VENV)/bin/python -m app.seed
+
 api: ## Sobe so a API
 	cd apps/api && ../../$(VENV)/bin/uvicorn app.main:app --reload --port 8000
 
@@ -38,6 +41,6 @@ lint:
 	$(VENV)/bin/ruff check apps/api
 	cd apps/web && npx tsc -b
 
-reset: ## Apaga o banco e recria do zero
+reset: ## Apaga o banco, recria e repopula
 	docker compose -f infra/docker-compose.yml down -v
-	@$(MAKE) migrate
+	@$(MAKE) seed
