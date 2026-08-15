@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import busca
+from app.api import atendimento, busca
 from app.config import settings
 from app.db import engine
 from app.llm import obter_provider
@@ -23,6 +23,7 @@ app.add_middleware(
 
 
 app.include_router(busca.router)
+app.include_router(atendimento.router)
 
 
 @app.get("/health")

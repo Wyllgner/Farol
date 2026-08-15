@@ -1,0 +1,268 @@
+"""Pipeline de resolucao (secao 5.2).
+
+1. Classificacao de intencao em 12 categorias
+2. Recuperacao semantica na base oficial
+3. Enriquecimento com estado individual
+4. Geracao ancorada, sob restricao rigida
+5. Verificacao de ancoragem — bloqueia afirmacao sem fonte
+6. Politica de triagem deterministica decide o destino
+
+A ordem nao e negociavel: a triagem decide DEPOIS de saber se ha fonte e
+se a ancoragem resistiu, e nunca antes.
+"""
+
+from dataclasses import dataclass, field
+
+from sqlalchemy.orm import Session
+
+from app.enums import Canal, Categoria, DecisaoTriagem, SituacaoCaso
+from app.llm import obter_provider
+from app.models import Caso
+from app.services import auditoria, dossie
+from app.services.ancoragem import Ancoragem, verificar
+from app.services.conhecimento import buscar
+from app.services.estado import montar as montar_estado
+from app.services.estado import resumir_para_prompt
+from app.services.identidade import Identidade, resolver
+from app.services.triagem import (
+    TEXTO_RECUSA,
+    Decisao,
+    calcular_confianca,
+    decidir,
+    eh_sensivel,
+)
+
+OFERTA_HUMANA = "Se isso nao resolver, posso encaminhar para um servidor da SECOEAD."
+
+
+@dataclass(slots=True)
+class Atendimento:
+    resposta: str
+    decisao: Decisao
+    categoria: Categoria
+    identidade: Identidade
+    trechos: list[dict] = field(default_factory=list)
+    ancoragem: Ancoragem | None = None
+    caso: Caso | None = None
+    acoes_rapidas: list[str] = field(default_factory=list)
+
+    @property
+    def escalou(self) -> bool:
+        return self.decisao.escala
+
+
+async def atender(
+    db: Session,
+    *,
+    canal: Canal,
+    handle: str,
+    pergunta: str,
+) -> Atendimento:
+    provider = obter_provider()
+    degradado = provider.nome == "fallback"
+
+    identidade = resolver(db, canal, handle)
+    auditoria.registrar(
+        db,
+        "entrada",
+        {
+            "canal": str(canal),
+            "pergunta": pergunta,
+            "nivel_identidade": str(identidade.nivel),
+            "provider": provider.nome,
+        },
+    )
+
+    # 1. Classificacao
+    classificacao = await provider.classificar(pergunta)
+    categoria = classificacao.categoria
+    auditoria.registrar(
+        db,
+        "classificacao",
+        {
+            "categoria": str(categoria),
+            "confianca": classificacao.confianca,
+            "degradado": classificacao.degradado,
+        },
+    )
+
+    # Categoria sensivel escala sempre. Poupamos a chamada de geracao: o
+    # destino ja esta decidido, e gerar texto que sera descartado so
+    # aumentaria a chance de vazar dado pessoal na conversa.
+    if eh_sensivel(categoria):
+        estado = montar_estado(db, identidade)
+        return _escalar(
+            db,
+            pergunta=pergunta,
+            canal=canal,
+            categoria=categoria,
+            identidade=identidade,
+            estado=estado,
+            trechos=[],
+            decisao=decidir(categoria, classificacao.confianca, False, True),
+            ancoragem=Ancoragem(intacta=False, afirmacoes_sem_fonte=["nao gerado"]),
+        )
+
+    # 2. Recuperacao — so fonte vigente entra
+    trechos = await buscar(db, pergunta)
+    auditoria.registrar(
+        db,
+        "recuperacao",
+        {
+            "quantidade": len(trechos),
+            "fontes": [{"documento": t["documento"], "score": t["score"]} for t in trechos],
+        },
+    )
+
+    # 3. Estado individual, limitado pelo nivel de identidade
+    estado = montar_estado(db, identidade)
+
+    # 4. Geracao ancorada
+    resumo_estado = resumir_para_prompt(estado)
+    pergunta_com_estado = (
+        f"{pergunta}\n\n[Estado deste participante]\n{resumo_estado}"
+        if resumo_estado
+        else pergunta
+    )
+    gerada = await provider.gerar_ancorado(pergunta_com_estado, trechos)
+
+    # 5. Verificacao de ancoragem
+    ancoragem = (
+        verificar(gerada.texto, trechos, gerada.fontes)
+        if not gerada.nao_sei
+        else Ancoragem(intacta=False, afirmacoes_sem_fonte=["modelo devolveu NAO_SEI"])
+    )
+    auditoria.registrar(
+        db,
+        "ancoragem",
+        {
+            "intacta": ancoragem.intacta,
+            "motivo": ancoragem.motivo,
+            "fontes_citadas": ancoragem.fontes_citadas,
+        },
+    )
+
+    # 6. Triagem deterministica
+    confianca = calcular_confianca(
+        confianca_classificacao=classificacao.confianca,
+        melhor_score_fonte=trechos[0]["score"] if trechos else 0.0,
+        ancoragem_intacta=ancoragem.intacta,
+        degradado=degradado,
+    )
+    decisao = decidir(
+        categoria,
+        confianca,
+        tem_fonte=bool(trechos),
+        nao_sei=gerada.nao_sei or not ancoragem.intacta,
+    )
+    auditoria.registrar(
+        db,
+        "triagem",
+        {
+            "decisao": str(decisao.decisao),
+            "motivo": decisao.motivo,
+            "confianca": confianca,
+        },
+    )
+
+    if decisao.escala:
+        return _escalar(
+            db,
+            pergunta=pergunta,
+            canal=canal,
+            categoria=categoria,
+            identidade=identidade,
+            estado=estado,
+            trechos=trechos,
+            decisao=decisao,
+            ancoragem=ancoragem,
+            rascunho=gerada.texto,
+        )
+
+    resposta = gerada.texto
+    acoes = ["Falar com um servidor"]
+    if decisao.decisao is DecisaoTriagem.RESPONDE_COM_OFERTA_HUMANA:
+        resposta = f"{resposta}\n\n{OFERTA_HUMANA}"
+
+    caso = Caso(
+        participante_id=identidade.participante.id if identidade.participante else None,
+        canal=canal,
+        categoria=categoria,
+        sensivel=False,
+        confianca=round(confianca, 3),
+        decisao_triagem=decisao.decisao,
+        situacao=SituacaoCaso.RESPONDIDO,
+        score_consequencia=dossie.score_consequencia(categoria, estado),
+    )
+    db.add(caso)
+    db.flush()
+
+    auditoria.registrar(db, "resposta", {"texto": resposta}, caso_id=caso.id)
+
+    return Atendimento(
+        resposta=resposta,
+        decisao=decisao,
+        categoria=categoria,
+        identidade=identidade,
+        trechos=trechos,
+        ancoragem=ancoragem,
+        caso=caso,
+        acoes_rapidas=acoes,
+    )
+
+
+def _escalar(
+    db: Session,
+    *,
+    pergunta: str,
+    canal: Canal,
+    categoria: Categoria,
+    identidade: Identidade,
+    estado: dict,
+    trechos: list[dict],
+    decisao: Decisao,
+    ancoragem: Ancoragem,
+    rascunho: str = "",
+) -> Atendimento:
+    """Recusa com dignidade e entrega o caso montado ao servidor."""
+    pasta = dossie.montar(
+        pergunta=pergunta,
+        categoria=categoria,
+        identidade=identidade,
+        estado=estado,
+        trechos=trechos,
+        decisao=decisao,
+        ancoragem=ancoragem,
+        rascunho=rascunho,
+    )
+
+    caso = Caso(
+        participante_id=identidade.participante.id if identidade.participante else None,
+        canal=canal,
+        categoria=categoria,
+        sensivel=decisao.sensivel,
+        confianca=round(decisao.confianca, 3),
+        decisao_triagem=decisao.decisao,
+        situacao=SituacaoCaso.ESCALADO,
+        dossie=pasta,
+        # O rascunho existe para ser revisado, nunca para sair sozinho.
+        rascunho_resposta=rascunho or None,
+        score_consequencia=dossie.score_consequencia(categoria, estado),
+    )
+    db.add(caso)
+    db.flush()
+
+    auditoria.registrar(
+        db, "escalonamento", {"motivo": decisao.motivo}, caso_id=caso.id
+    )
+
+    return Atendimento(
+        resposta=TEXTO_RECUSA,
+        decisao=decisao,
+        categoria=categoria,
+        identidade=identidade,
+        trechos=trechos,
+        ancoragem=ancoragem,
+        caso=caso,
+        acoes_rapidas=[],
+    )
