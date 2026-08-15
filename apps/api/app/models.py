@@ -118,6 +118,7 @@ class Matricula(Base, TimestampMixin):
 
     participante: Mapped[Participante] = relationship(back_populates="matriculas")
     curso: Mapped[Curso] = relationship()
+    aresta_atual: Mapped["ArestaJornada | None"] = relationship()
 
     __table_args__ = (Index("ix_matricula_part_curso", "participante_id", "curso_id", unique=True),)
 
