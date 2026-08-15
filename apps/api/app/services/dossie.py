@@ -47,7 +47,9 @@ def montar(
     """Monta o caso para leitura humana rapida."""
     return {
         # Critico no topo: e o que o servidor le primeiro.
-        "resumo": _resumir(categoria, identidade, estado, decisao),
+        "resumo": _resumir(
+            categoria, identidade, estado, decisao, orientacao_padrao_falhou
+        ),
         "motivo_do_escalonamento": decisao.motivo,
         "orientacao_padrao_falhou": orientacao_padrao_falhou,
         "categoria": str(categoria),
@@ -71,9 +73,22 @@ def montar(
 
 
 def _resumir(
-    categoria: Categoria, identidade: Identidade, estado: dict, decisao: Decisao
+    categoria: Categoria,
+    identidade: Identidade,
+    estado: dict,
+    decisao: Decisao,
+    orientacao_padrao_falhou: bool = False,
 ) -> str:
     quem = estado.get("primeiro_nome") or "Participante nao identificado"
+
+    # A informacao mais valiosa que existe vai primeiro: a orientacao
+    # oficial ja foi tentada e nao funcionou para esta pessoa.
+    if orientacao_padrao_falhou:
+        return (
+            f"{quem} — {categoria}: a orientacao padrao ja foi tentada e "
+            f"nao resolveu. Precisa de atendimento humano."
+        )
+
     if decisao.sensivel:
         return f"{quem} — assunto sensivel ({categoria}), encaminhado por politica."
 
