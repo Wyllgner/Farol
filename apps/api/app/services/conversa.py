@@ -13,7 +13,14 @@ from sqlalchemy.orm import Session
 from app.channels.base import InboundMessage, OutboundMessage
 from app.enums import Canal, Direcao, SituacaoCaso
 from app.models import Caso, Conversa, Mensagem
-from app.services import auditoria, contrato, dossie, fila, fluxo_guiado
+from app.services import (
+    atencao,
+    auditoria,
+    contrato,
+    dossie,
+    fila,
+    fluxo_guiado,
+)
 from app.services.ancoragem import Ancoragem
 from app.services.atendimento import atender
 from app.services.estado import montar as montar_estado
@@ -89,16 +96,21 @@ async def _rotear(
     if estado_fluxo is not None:
         return _continuar_fluxo(db, conversa, estado_fluxo, entrada.texto)
 
-    # 2. Resposta ao Contrato de Resolucao. Vem antes do pipeline: quem
+    # 2. Opt-out vem antes de tudo. Quem pediu para parar de receber nao
+    #    pode ser respondido com mais uma mensagem sobre outro assunto.
+    if atencao.eh_optout(entrada.texto):
+        return _processar_optout(db, conversa)
+
+    # 3. Resposta ao Contrato de Resolucao. Vem antes do pipeline: quem
     #    responde "nao resolveu" nao esta fazendo uma pergunta nova.
     if resposta := _responder_contrato(db, conversa, entrada.texto):
         return resposta
 
-    # 3. Aceite explicito da oferta feita na mensagem anterior.
+    # 4. Aceite explicito da oferta feita na mensagem anterior.
     if entrada.texto.strip().lower() == ACEITE.lower():
         return _iniciar_fluxo(db, conversa, fluxo_guiado.FLUXO_2FA.chave)
 
-    # 4. Pipeline normal.
+    # 5. Pipeline normal.
     resultado = await atender(
         db, canal=entrada.canal, handle=entrada.handle, pergunta=entrada.texto
     )
@@ -160,6 +172,24 @@ def _responder_contrato(
             "Obrigado por avisar. Nao vou repetir a mesma orientacao — se ela "
             "nao funcionou, o caso precisa de um servidor. Ja encaminhei com o "
             "registro do que foi tentado e voce recebera retorno por aqui."
+        ),
+        acoes_rapidas=[],
+    )
+
+
+def _processar_optout(db: Session, conversa: Conversa) -> OutboundMessage:
+    """Uma palavra basta, e vale para sempre."""
+    from app.models import Participante
+
+    if conversa.participante_id:
+        participante = db.get(Participante, conversa.participante_id)
+        if participante:
+            atencao.desativar_avisos(db, participante)
+
+    return OutboundMessage(
+        texto=(
+            "Pronto, nao vou mais mandar avisos automaticos. Voce continua "
+            "podendo perguntar aqui quando precisar."
         ),
         acoes_rapidas=[],
     )
