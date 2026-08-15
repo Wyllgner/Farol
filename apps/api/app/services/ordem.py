@@ -102,9 +102,7 @@ def _prever_queda(volume: int, concentracao: float) -> int:
 
 async def propor(db: Session, cluster: Cluster) -> OrdemCorrecao | None:
     """Transforma um agrupamento em experimento verificavel."""
-    registro = db.scalar(
-        select(AgrupamentoCausa).where(AgrupamentoCausa.rotulo == cluster.rotulo)
-    )
+    registro = db.get(AgrupamentoCausa, cluster.id) if cluster.id else None
     if registro is None:
         return None
 

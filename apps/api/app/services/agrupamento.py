@@ -14,6 +14,7 @@ causas-raiz e justamente o que nao se sabe.
 """
 
 import logging
+import uuid
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
@@ -34,6 +35,10 @@ TAMANHO_MINIMO_CLUSTER = 3
 
 @dataclass(slots=True)
 class Cluster:
+    # Id do registro no banco. Casar cluster com agrupamento pelo rotulo
+    # seria fragil: rotulo nao e unico, e dois agrupamentos distintos
+    # podem receber o mesmo nome.
+    id: uuid.UUID | None
     rotulo: str
     casos: list[Caso]
     aresta: ArestaJornada | None
@@ -192,7 +197,13 @@ async def agrupar(db: Session) -> list[Cluster]:
             caso.agrupamento_id = registro.id
 
         clusters.append(
-            Cluster(rotulo=rotulo, casos=membros, aresta=aresta, cursos=cursos)
+            Cluster(
+                id=registro.id,
+                rotulo=rotulo,
+                casos=membros,
+                aresta=aresta,
+                cursos=cursos,
+            )
         )
 
     db.flush()
