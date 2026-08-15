@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import EspelhoWhatsApp from './EspelhoWhatsApp'
+import FilaServidor from './FilaServidor'
 import WidgetAva from './WidgetAva'
 
-type Superficie = 'whatsapp' | 'ava'
+type Superficie = 'whatsapp' | 'ava' | 'fila'
 
 /** Participante fictício com 2FA pendente — aciona a oferta de acompanhamento. */
 const HANDLE_DEMO = '+556990000001'
@@ -32,11 +33,17 @@ export default function App() {
             <Aba ativa={superficie === 'ava'} onClick={() => setSuperficie('ava')}>
               Widget do AVA
             </Aba>
+            <Aba ativa={superficie === 'fila'} onClick={() => setSuperficie('fila')}>
+              Fila do Servidor
+            </Aba>
           </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-6xl px-6 py-10">
+        {superficie === 'fila' && <FilaServidor />}
+
+        {superficie !== 'fila' && (
         <label className="mb-8 block max-w-md">
           <span className="text-sm font-medium text-neutro-600">
             Identificação no canal
@@ -53,12 +60,10 @@ export default function App() {
               : 'Anônimo: só informação pública, nenhum dado pessoal.'}
           </span>
         </label>
-
-        {superficie === 'whatsapp' ? (
-          <EspelhoWhatsApp key={handle} handle={handle} />
-        ) : (
-          <PaginaAva handle={handle} />
         )}
+
+        {superficie === 'whatsapp' && <EspelhoWhatsApp key={handle} handle={handle} />}
+        {superficie === 'ava' && <PaginaAva handle={handle} />}
       </main>
     </div>
   )
