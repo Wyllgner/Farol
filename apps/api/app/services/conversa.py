@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.channels.base import InboundMessage, OutboundMessage
 from app.enums import Canal, Direcao, SituacaoCaso
-from app.models import Conversa, Mensagem
-from app.services import auditoria, dossie, fluxo_guiado
+from app.models import Caso, Conversa, Mensagem
+from app.services import auditoria, contrato, dossie, fila, fluxo_guiado
 from app.services.ancoragem import Ancoragem
 from app.services.atendimento import atender
 from app.services.estado import montar as montar_estado
@@ -89,14 +89,29 @@ async def _rotear(
     if estado_fluxo is not None:
         return _continuar_fluxo(db, conversa, estado_fluxo, entrada.texto)
 
-    # 2. Aceite explicito da oferta feita na mensagem anterior.
+    # 2. Resposta ao Contrato de Resolucao. Vem antes do pipeline: quem
+    #    responde "nao resolveu" nao esta fazendo uma pergunta nova.
+    if resposta := _responder_contrato(db, conversa, entrada.texto):
+        return resposta
+
+    # 3. Aceite explicito da oferta feita na mensagem anterior.
     if entrada.texto.strip().lower() == ACEITE.lower():
         return _iniciar_fluxo(db, conversa, fluxo_guiado.FLUXO_2FA.chave)
 
-    # 3. Pipeline normal.
+    # 4. Pipeline normal.
     resultado = await atender(
         db, canal=entrada.canal, handle=entrada.handle, pergunta=entrada.texto
     )
+
+    if resultado.caso is not None:
+        resultado.caso.conversa_id = conversa.id
+        if resultado.escalou:
+            _deduplicar(db, resultado.caso)
+        else:
+            # Todo caso respondido nasce com contrato aberto: ele so
+            # fecha quando a pessoa confirmar que resolveu.
+            contrato.abrir(resultado.caso, resultado.resposta, resultado.trechos)
+        db.flush()
 
     acoes = list(resultado.acoes_rapidas)
     texto = resultado.resposta
@@ -116,6 +131,45 @@ async def _rotear(
             {"documento": t["documento"], "dono": t["dono"]} for t in resultado.trechos
         ],
     )
+
+
+def _responder_contrato(
+    db: Session, conversa: Conversa, texto: str
+) -> OutboundMessage | None:
+    """Processa 'sim, resolveu' ou 'nao resolveu' de um contrato aberto."""
+    resposta = texto.strip().lower()
+    if resposta not in (contrato.SIM.lower(), contrato.NAO.lower()):
+        return None
+
+    caso = contrato.caso_aguardando(db, conversa.participante_id)
+    if caso is None:
+        return None
+
+    if resposta == contrato.SIM.lower():
+        contrato.confirmar(db, caso)
+        return OutboundMessage(
+            texto="Que bom. Qualquer outra duvida, e so chamar.",
+            acoes_rapidas=[],
+        )
+
+    # A regra central do laco: nao repetimos a resposta que ja falhou.
+    contrato.registrar_falha(db, caso)
+    _deduplicar(db, caso)
+    return OutboundMessage(
+        texto=(
+            "Obrigado por avisar. Nao vou repetir a mesma orientacao — se ela "
+            "nao funcionou, o caso precisa de um servidor. Ja encaminhei com o "
+            "registro do que foi tentado e voce recebera retorno por aqui."
+        ),
+        acoes_rapidas=[],
+    )
+
+
+def _deduplicar(db: Session, caso: Caso) -> None:
+    """Mesma pessoa e mesmo assunto em janela curta viram um caso so."""
+    original = fila.encontrar_duplicado(db, caso.participante_id, caso.categoria)
+    if original is not None and original.id != caso.id:
+        fila.marcar_duplicado(db, caso, original)
 
 
 def _iniciar_fluxo(db: Session, conversa: Conversa, chave: str) -> OutboundMessage:
