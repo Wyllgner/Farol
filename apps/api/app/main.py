@@ -2,7 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import antecipacao, atendimento, busca, canal, fila, radar
+from app.api import (
+    antecipacao,
+    atendimento,
+    busca,
+    canal,
+    fila,
+    governanca,
+    radar,
+)
 from app.config import settings
 from app.db import engine
 from app.llm import obter_provider
@@ -28,6 +36,7 @@ app.include_router(canal.router)
 app.include_router(fila.router)
 app.include_router(antecipacao.router)
 app.include_router(radar.router)
+app.include_router(governanca.router)
 
 
 @app.get("/health")
