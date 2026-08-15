@@ -179,6 +179,12 @@ class Conversa(Base, TimestampMixin):
     # Identificador do interlocutor no canal (telefone, e-mail, sessao do widget).
     # Existe separado de participante_id porque no nivel anonimo nao ha cadastro.
     handle_canal: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Estado do fluxo guiado em andamento (secao 5.4). Vive na conversa e
+    # nao em memoria: acompanhar alguem por cinco passos nao pode depender
+    # de o processo continuar de pe.
+    fluxo_estado: Mapped[dict | None] = mapped_column(JSON)
+    # Contexto da pagina, quando o canal e o widget do AVA.
+    contexto_pagina: Mapped[str | None] = mapped_column(String(300))
 
     mensagens: Mapped[list["Mensagem"]] = relationship(
         back_populates="conversa", cascade="all, delete-orphan"
