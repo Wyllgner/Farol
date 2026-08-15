@@ -53,7 +53,11 @@ async def indexar(db: Session, documento: DocumentoConhecimento) -> int:
 
     vetores = await obter_provider().embutir(textos)
     for ordem, (trecho, vetor) in enumerate(zip(textos, vetores, strict=True)):
-        db.add(Chunk(documento_id=documento.id, ordem=ordem, texto=trecho, vetor=vetor))
+        # Anexar pela relacao, e nao com db.add solto: assim o documento
+        # ja sai daqui citavel na mesma sessao, sem depender de recarga.
+        documento.chunks.append(
+            Chunk(ordem=ordem, texto=trecho, vetor=vetor)
+        )
 
     db.flush()
     return len(textos)
