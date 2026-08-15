@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/* Secao 12.3 — sobria e institucional, adequada ao Judiciario, mas moderna.
+   O verde e reservado ao Espelho do WhatsApp por fidelidade: e a unica tela
+   que foge da paleta institucional, e foge de proposito. */
+@theme {
+  --color-marinho-50: #eef2f8;
+  --color-marinho-100: #d3ddec;
+  --color-marinho-500: #2c4a7c;
+  --color-marinho-700: #1b3159;
+  --color-marinho-900: #0f1e3d;
+
+  --color-dourado-400: #c9a227;
+  --color-dourado-600: #9c7c14;
+
+  --color-neutro-50: #fafafa;
+  --color-neutro-100: #f4f4f5;
+  --color-neutro-300: #d4d4d8;
+  --color-neutro-600: #52525b;
+  --color-neutro-900: #18181b;
+
+  /* Exclusivo do Espelho do WhatsApp. */
+  --color-zap-fundo: #e5ddd5;
+  --color-zap-balao: #dcf8c6;
+  --color-zap-barra: #075e54;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-suave: 0.75rem;
+}
+
+/* Secao 12.2, item 8: fonte >=16px no chat, alvos de toque >=44px,
+   contraste AA. Sao requisitos, nao recomendacoes. */
+html {
+  font-size: 16px;
+}
+
+body {
+  background-color: var(--color-neutro-50);
+  color: var(--color-neutro-900);
+}
+
+button,
+[role="button"] {
+  min-height: 44px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-dourado-400);
+  outline-offset: 2px;
+}
