@@ -103,10 +103,13 @@ def _semear_cursos(db, hoje: date) -> list[Curso]:
                 },
                 {
                     "titulo": "Encontro sincrono de encerramento",
-                    # O primeiro curso tem uma webconferencia proxima, para
-                    # que o gatilho de "webconferencia em 1 hora" tenha alvo.
+                    # Data e HORA: o gatilho de webconferencia mede horas ate
+                    # o encontro, e uma data isolada vira meia-noite — ja no
+                    # passado quando o motor roda. O primeiro curso tem um
+                    # encontro daqui a poucas horas, para o gatilho ter alvo.
                     "quando": (
-                        hoje + timedelta(days=0 if indice == 0 else 12)
+                        datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+                        + timedelta(hours=3 if indice == 0 else 24 * 12)
                     ).isoformat(),
                     "modulo": 4,
                 },
