@@ -57,6 +57,18 @@ def db():
 
 
 @pytest.fixture
+def sem_ensaio(monkeypatch):
+    """Desliga o Modo Ensaio para testar o caminho de resposta direta.
+
+    Com o ensaio ligado nada e enviado automaticamente — que e o correto,
+    mas nao e o que estes testes verificam.
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "modo_ensaio", False)
+
+
+@pytest.fixture
 def doc_certificado(db):
     """Documento vigente sobre certificado, com seu vetor e trecho."""
     documento = db.scalar(
@@ -80,7 +92,9 @@ def _instalar(monkeypatch, provider):
 # --------------------------------------------------------------------------
 
 
-async def test_responde_ancorado_em_fonte_oficial(db, monkeypatch, doc_certificado):
+async def test_responde_ancorado_em_fonte_oficial(
+    db, monkeypatch, doc_certificado, sem_ensaio
+):
     _, chunk = doc_certificado
     _instalar(
         monkeypatch,
@@ -184,7 +198,9 @@ async def test_categoria_sensivel_escala_com_confianca_alta(db, monkeypatch, doc
 # --------------------------------------------------------------------------
 
 
-async def test_anonimo_nao_recebe_dado_pessoal(db, monkeypatch, doc_certificado):
+async def test_anonimo_nao_recebe_dado_pessoal(
+    db, monkeypatch, doc_certificado, sem_ensaio
+):
     _, chunk = doc_certificado
     _instalar(
         monkeypatch,
@@ -202,7 +218,9 @@ async def test_anonimo_nao_recebe_dado_pessoal(db, monkeypatch, doc_certificado)
     assert r.identidade.participante is None
 
 
-async def test_contato_conhecido_e_reconhecido(db, monkeypatch, doc_certificado):
+async def test_contato_conhecido_e_reconhecido(
+    db, monkeypatch, doc_certificado, sem_ensaio
+):
     _, chunk = doc_certificado
     participante = db.scalar(select(Participante).where(Participante.telefone.is_not(None)))
     _instalar(
@@ -242,3 +260,63 @@ async def test_toda_interacao_deixa_rastro(db, monkeypatch, doc_certificado):
     etapas = set(db.scalars(select(LogAuditoria.etapa)).all())
     assert {"entrada", "classificacao", "recuperacao", "ancoragem", "triagem"} <= etapas
     assert antes or etapas
+
+
+# --------------------------------------------------------------------------
+# Modo Ensaio
+# --------------------------------------------------------------------------
+
+
+async def test_modo_ensaio_gera_mas_nao_envia(db, monkeypatch, doc_certificado):
+    """A resposta existe e vai para revisao; o participante nao a recebe."""
+    from app.config import settings
+    from app.services import ensaio
+
+    monkeypatch.setattr(settings, "modo_ensaio", True)
+    _, chunk = doc_certificado
+    _instalar(
+        monkeypatch,
+        ProviderFalso(
+            categoria=Categoria.CERTIFICADO,
+            texto="O certificado exige frequencia minima de 75%.",
+            fontes=["__primeiro__"],
+            vetor=list(chunk.vetor),
+        ),
+    )
+
+    r = await atender(db, canal=Canal.WHATSAPP, handle="", pergunta="como emito")
+
+    assert r.retido
+    assert not r.foi_entregue
+    assert r.caso.em_ensaio
+    assert r.caso.situacao is SituacaoCaso.ESCALADO
+    # A resposta gerada fica guardada para o servidor conferir...
+    assert "75%" in r.caso.rascunho_resposta
+    # ...e nao e o que o participante recebe.
+    assert "75%" not in r.resposta
+    assert r.resposta == ensaio.AVISO_AO_PARTICIPANTE
+
+
+async def test_categoria_liberada_volta_a_responder(db, monkeypatch, doc_certificado):
+    from app.config import settings
+    from app.services import ensaio
+
+    monkeypatch.setattr(settings, "modo_ensaio", True)
+    ensaio.liberar(db, Categoria.CERTIFICADO, "Servidora Ana")
+
+    _, chunk = doc_certificado
+    _instalar(
+        monkeypatch,
+        ProviderFalso(
+            categoria=Categoria.CERTIFICADO,
+            texto="O certificado exige frequencia minima de 75%.",
+            fontes=["__primeiro__"],
+            vetor=list(chunk.vetor),
+        ),
+    )
+
+    r = await atender(db, canal=Canal.WHATSAPP, handle="", pergunta="como emito")
+
+    assert not r.retido
+    assert r.foi_entregue
+    assert "75%" in r.resposta
