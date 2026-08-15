@@ -224,6 +224,17 @@ class Caso(Base, TimestampMixin):
     canal: Mapped[Canal] = mapped_column(String(24), nullable=False)
     categoria: Mapped[Categoria] = mapped_column(String(32), nullable=False)
     sensivel: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # O que a pessoa perguntou, e o vetor dessa pergunta. O Andar 3 agrupa
+    # por similaridade semantica: sem guardar isso, descobrir a causa-raiz
+    # exigiria re-embutir tudo a cada analise.
+    pergunta: Mapped[str | None] = mapped_column(Text)
+    vetor_pergunta: Mapped[list[float] | None] = mapped_column(
+        Vector(settings.embedding_dim)
+    )
+    agrupamento_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agrupamento_causa.id", ondelete="SET NULL")
+    )
     confianca: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
     decisao_triagem: Mapped[DecisaoTriagem | None] = mapped_column(String(32))
     situacao: Mapped[SituacaoCaso] = mapped_column(
@@ -332,6 +343,13 @@ class OrdemCorrecao(Base, TimestampMixin):
         String(24), default=SituacaoOrdem.PENDENTE, nullable=False
     )
     impacto_estimado: Mapped[int] = mapped_column(Integer, default=0)
+    # Volume observado quando a ordem foi emitida. Sem esta linha de base
+    # nao ha como dizer se o volume caiu — so se ele esta alto ou baixo.
+    volume_base_mensal: Mapped[int] = mapped_column(Integer, default=0)
+    implementada_em: Mapped[date | None] = mapped_column(Date)
+    # Quando a previsao falha, a hipotese e descartada e o motivo fica
+    # registrado: o Andar 3 nao esconde as proprias hipoteses erradas.
+    conclusao: Mapped[str | None] = mapped_column(Text)
 
 
 # --------------------------------------------------------------------------
