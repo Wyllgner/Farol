@@ -264,6 +264,13 @@ class Caso(Base, TimestampMixin):
         ForeignKey("caso.id", ondelete="SET NULL")
     )
 
+    # Secao 7.1 — Modo Ensaio. O caso foi gerado em modo sombra: a resposta
+    # existe, mas nao foi enviada; um servidor precisa aprovar ou corrigir.
+    em_ensaio: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # None enquanto nao revisado; True se o servidor aprovou o que o FAROL
+    # teria respondido. E dessa razao que sai a taxa de acerto por categoria.
+    aprovado_em_ensaio: Mapped[bool | None] = mapped_column(Boolean)
+
     # Trilha do atendimento humano. O cronometro da fila mede daqui.
     assumido_por: Mapped[str | None] = mapped_column(String(200))
     assumido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -370,3 +377,20 @@ class LogAuditoria(Base, TimestampMixin):
     caso_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("caso.id", ondelete="SET NULL"))
     etapa: Mapped[str] = mapped_column(String(64), nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
+class LiberacaoCategoria(Base, TimestampMixin):
+    """Liberacao do Modo Ensaio, categoria por categoria (secao 7.1).
+
+    Nenhuma instituicao do Judiciario liga no dia 1 um sistema que fala em
+    nome da Casa. A liberacao e granular e so acontece depois de uma taxa
+    de acerto observada — nao pedimos confianca, pedimos observacao.
+    """
+
+    __tablename__ = "liberacao_categoria"
+
+    id: Mapped[uuid.UUID] = _pk()
+    categoria: Mapped[Categoria] = mapped_column(String(32), unique=True, nullable=False)
+    liberada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    liberada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    liberada_por: Mapped[str | None] = mapped_column(String(200))
