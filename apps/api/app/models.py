@@ -232,6 +232,12 @@ class Caso(Base, TimestampMixin):
     dossie: Mapped[dict | None] = mapped_column(JSON)
     rascunho_resposta: Mapped[str | None] = mapped_column(Text)
 
+    # Texto efetivamente entregue e fontes que o sustentaram. Sem isso o
+    # Contrato de Resolucao nao teria a quem creditar o "sim, resolveu"
+    # nem a quem rebaixar no "nao resolveu".
+    resposta_enviada: Mapped[str | None] = mapped_column(Text)
+    fontes_usadas: Mapped[list | None] = mapped_column(JSON)
+
     # Secao 5.5 — o laco. Um caso so fecha com confirmacao da pessoa.
     contrato_resolucao: Mapped[ContratoResolucao] = mapped_column(
         String(24), default=ContratoResolucao.ABERTO, nullable=False
@@ -246,6 +252,11 @@ class Caso(Base, TimestampMixin):
     duplicado_de_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("caso.id", ondelete="SET NULL")
     )
+
+    # Trilha do atendimento humano. O cronometro da fila mede daqui.
+    assumido_por: Mapped[str | None] = mapped_column(String(200))
+    assumido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    encerrado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 # --------------------------------------------------------------------------
