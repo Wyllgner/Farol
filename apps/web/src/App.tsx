@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import EspelhoWhatsApp from './EspelhoWhatsApp'
 import ComoDecide from './ComoDecide'
+import Console from './Console'
 import FilaServidor from './FilaServidor'
 import Indicadores from './Indicadores'
 import RadarCausas from './RadarCausas'
 import WidgetAva from './WidgetAva'
 
-type Superficie = 'whatsapp' | 'ava' | 'fila' | 'radar' | 'indicadores' | 'decide'
+type Superficie = 'whatsapp' | 'ava' | 'fila' | 'radar' | 'indicadores' | 'decide' | 'console'
 
 /** Participante fictício com 2FA pendente — aciona a oferta de acompanhamento. */
 const HANDLE_DEMO = '+556990000001'
@@ -51,6 +52,12 @@ export default function App() {
             <Aba ativa={superficie === 'decide'} onClick={() => setSuperficie('decide')}>
               Como decide
             </Aba>
+            <Aba
+              ativa={superficie === 'console'}
+              onClick={() => setSuperficie('console')}
+            >
+              Console
+            </Aba>
           </nav>
         </div>
       </header>
@@ -60,6 +67,15 @@ export default function App() {
         {superficie === 'radar' && <RadarCausas />}
         {superficie === 'indicadores' && <Indicadores />}
         {superficie === 'decide' && <ComoDecide />}
+        {superficie === 'console' && (
+          <Console
+            handleAtual={handle}
+            aoEscolherParticipante={(telefone) => {
+              setHandle(telefone)
+              setSuperficie('whatsapp')
+            }}
+          />
+        )}
 
         {(superficie === 'whatsapp' || superficie === 'ava') && (
         <label className="mb-8 block max-w-md">
