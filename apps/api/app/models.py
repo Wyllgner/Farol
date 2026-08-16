@@ -41,6 +41,7 @@ from app.enums import (
     SituacaoDocumento,
     SituacaoOrdem,
 )
+from app.tipos import EnumTexto
 
 
 def _pk() -> Mapped[uuid.UUID]:
@@ -65,10 +66,10 @@ class Participante(Base, TimestampMixin):
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     telefone: Mapped[str | None] = mapped_column(String(32), unique=True)
-    perfil: Mapped[Perfil] = mapped_column(String(24), nullable=False)
-    canal_preferido: Mapped[Canal] = mapped_column(String(24), default=Canal.WHATSAPP)
+    perfil: Mapped[Perfil] = mapped_column(EnumTexto(Perfil, 24), nullable=False)
+    canal_preferido: Mapped[Canal] = mapped_column(EnumTexto(Canal, 24), default=Canal.WHATSAPP)
     nivel_identidade: Mapped[NivelIdentidade] = mapped_column(
-        String(24), default=NivelIdentidade.ANONIMO, nullable=False
+        EnumTexto(NivelIdentidade, 24), default=NivelIdentidade.ANONIMO, nullable=False
     )
 
     # Secao 4.3 — Orcamento de Atencao. Saldo de interrupcoes ainda disponivel.
@@ -108,7 +109,7 @@ class Matricula(Base, TimestampMixin):
     dois_fatores_configurado: Mapped[bool] = mapped_column(Boolean, default=False)
     prazo_pessoal: Mapped[date | None] = mapped_column(Date)
     situacao_certificado: Mapped[SituacaoCertificado] = mapped_column(
-        String(24), default=SituacaoCertificado.NAO_ELEGIVEL
+        EnumTexto(SituacaoCertificado, 24), default=SituacaoCertificado.NAO_ELEGIVEL
     )
     # Onde a pessoa esta no grafo da jornada (secao 4.1). Compartilhado
     # entre o Andar 1 e o Andar 3 — e o que elimina duplicacao conceitual.
@@ -138,7 +139,7 @@ class DocumentoConhecimento(Base, TimestampMixin):
     # Secao 7.2 — sem fonte valida e vigente, o FAROL escala.
     valido_ate: Mapped[date | None] = mapped_column(Date)
     situacao: Mapped[SituacaoDocumento] = mapped_column(
-        String(24), default=SituacaoDocumento.VIGENTE, nullable=False
+        EnumTexto(SituacaoDocumento, 24), default=SituacaoDocumento.VIGENTE, nullable=False
     )
     taxa_resolucao: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     ultima_citacao: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -175,7 +176,7 @@ class Conversa(Base, TimestampMixin):
     participante_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("participante.id", ondelete="SET NULL")
     )
-    canal: Mapped[Canal] = mapped_column(String(24), nullable=False)
+    canal: Mapped[Canal] = mapped_column(EnumTexto(Canal, 24), nullable=False)
     # Identificador do interlocutor no canal (telefone, e-mail, sessao do widget).
     # Existe separado de participante_id porque no nivel anonimo nao ha cadastro.
     handle_canal: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -198,7 +199,7 @@ class Mensagem(Base, TimestampMixin):
     conversa_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("conversa.id", ondelete="CASCADE"), nullable=False
     )
-    direcao: Mapped[Direcao] = mapped_column(String(16), nullable=False)
+    direcao: Mapped[Direcao] = mapped_column(EnumTexto(Direcao, 16), nullable=False)
     conteudo: Mapped[str] = mapped_column(Text, nullable=False)
     # Respostas rapidas oferecidas junto da mensagem (secao 12.2: uma acao por mensagem).
     acoes_rapidas: Mapped[list] = mapped_column(JSON, default=list)
@@ -222,7 +223,7 @@ class Caso(Base, TimestampMixin):
         ForeignKey("conversa.id", ondelete="SET NULL")
     )
     canal: Mapped[Canal] = mapped_column(String(24), nullable=False)
-    categoria: Mapped[Categoria] = mapped_column(String(32), nullable=False)
+    categoria: Mapped[Categoria] = mapped_column(EnumTexto(Categoria, 32), nullable=False)
     sensivel: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # O que a pessoa perguntou, e o vetor dessa pergunta. O Andar 3 agrupa
@@ -236,9 +237,9 @@ class Caso(Base, TimestampMixin):
         ForeignKey("agrupamento_causa.id", ondelete="SET NULL")
     )
     confianca: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
-    decisao_triagem: Mapped[DecisaoTriagem | None] = mapped_column(String(32))
+    decisao_triagem: Mapped[DecisaoTriagem | None] = mapped_column(EnumTexto(DecisaoTriagem, 32))
     situacao: Mapped[SituacaoCaso] = mapped_column(
-        String(24), default=SituacaoCaso.ABERTO, nullable=False
+        EnumTexto(SituacaoCaso, 24), default=SituacaoCaso.ABERTO, nullable=False
     )
     dossie: Mapped[dict | None] = mapped_column(JSON)
     rascunho_resposta: Mapped[str | None] = mapped_column(Text)
@@ -251,7 +252,7 @@ class Caso(Base, TimestampMixin):
 
     # Secao 5.5 — o laco. Um caso so fecha com confirmacao da pessoa.
     contrato_resolucao: Mapped[ContratoResolucao] = mapped_column(
-        String(24), default=ContratoResolucao.ABERTO, nullable=False
+        EnumTexto(ContratoResolucao, 24), default=ContratoResolucao.ABERTO, nullable=False
     )
     contrato_perguntado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # A informacao mais valiosa que existe quando a pessoa diz "nao resolveu".
@@ -297,7 +298,7 @@ class EventoProativo(Base, TimestampMixin):
     hipotese: Mapped[str] = mapped_column(Text, nullable=False)
     verificar_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     efeito: Mapped[EfeitoAntecipacao] = mapped_column(
-        String(24), default=EfeitoAntecipacao.PENDENTE, nullable=False
+        EnumTexto(EfeitoAntecipacao, 24), default=EfeitoAntecipacao.PENDENTE, nullable=False
     )
 
 
@@ -347,7 +348,7 @@ class OrdemCorrecao(Base, TimestampMixin):
     medir_em: Mapped[date | None] = mapped_column(Date)
     resultado_medido: Mapped[int | None] = mapped_column(Integer)
     situacao: Mapped[SituacaoOrdem] = mapped_column(
-        String(24), default=SituacaoOrdem.PENDENTE, nullable=False
+        EnumTexto(SituacaoOrdem, 24), default=SituacaoOrdem.PENDENTE, nullable=False
     )
     impacto_estimado: Mapped[int] = mapped_column(Integer, default=0)
     # Volume observado quando a ordem foi emitida. Sem esta linha de base
@@ -390,7 +391,9 @@ class LiberacaoCategoria(Base, TimestampMixin):
     __tablename__ = "liberacao_categoria"
 
     id: Mapped[uuid.UUID] = _pk()
-    categoria: Mapped[Categoria] = mapped_column(String(32), unique=True, nullable=False)
+    categoria: Mapped[Categoria] = mapped_column(
+        EnumTexto(Categoria, 32), unique=True, nullable=False
+    )
     liberada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     liberada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     liberada_por: Mapped[str | None] = mapped_column(String(200))
