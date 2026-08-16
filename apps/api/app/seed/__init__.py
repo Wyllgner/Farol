@@ -13,15 +13,22 @@ import random
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.db import SessionLocal
 from app.enums import Canal, NivelIdentidade, Perfil, SituacaoCertificado, SituacaoDocumento
 from app.models import (
+    AgrupamentoCausa,
     ArestaJornada,
+    Caso,
+    Conversa,
     Curso,
     DocumentoConhecimento,
+    EventoProativo,
+    LiberacaoCategoria,
     Matricula,
+    Mensagem,
+    OrdemCorrecao,
     Participante,
 )
 from app.seed.documentos import DOCUMENTOS, resolver_validade
@@ -63,8 +70,37 @@ CURSOS = [
 
 
 def _limpar(db) -> None:
-    """Reset idempotente: a demonstracao nunca pode falhar por estado sujo."""
-    for modelo in (Matricula, Participante, Curso, DocumentoConhecimento, ArestaJornada):
+    """Reset idempotente: a demonstracao nunca pode falhar por estado sujo.
+
+    A ordem importa e a lista precisa incluir o que a OPERACAO gerou, nao
+    so o que o seed criou. Apagar participantes sem apagar conversas
+    deixava conversas orfas (o vinculo vira NULL por ondelete=SET NULL)
+    que eram reaproveitadas na proxima rodada — e o participante deixava
+    de ser reconhecido sem que nada acusasse erro.
+    """
+    # A auditoria some primeiro, e por TRUNCATE. Duas razoes:
+    #   1. apagar casos dispara ondelete=SET NULL sobre log_auditoria, que
+    #      e um UPDATE — recusado pelo trigger de imutabilidade;
+    #   2. TRUNCATE nao aciona triggers de linha, entao a garantia de
+    #      append-only continua valendo para toda a operacao normal.
+    # Recriar o mundo ficticio nao e o mesmo que adulterar um registro:
+    # este caminho existe so no seed, que e ferramenta de demonstracao.
+    db.execute(text("TRUNCATE log_auditoria"))
+
+    for modelo in (
+        OrdemCorrecao,
+        AgrupamentoCausa,
+        EventoProativo,
+        Mensagem,
+        Caso,
+        Conversa,
+        LiberacaoCategoria,
+        Matricula,
+        Participante,
+        Curso,
+        DocumentoConhecimento,
+        ArestaJornada,
+    ):
         for registro in db.scalars(select(modelo)).all():
             db.delete(registro)
     db.flush()

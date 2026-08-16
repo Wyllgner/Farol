@@ -50,6 +50,14 @@ def obter_ou_criar(db: Session, canal: Canal, handle: str) -> Conversa:
         )
         db.add(conversa)
         db.flush()
+    elif conversa.participante_id is None:
+        # A conversa pode ter nascido antes de a pessoa existir no cadastro
+        # (ou ter perdido o vinculo). Reconhecer de novo evita que ela siga
+        # anonima para sempre so por ter falado com o FAROL antes.
+        identidade = resolver(db, canal, handle)
+        if identidade.participante is not None:
+            conversa.participante_id = identidade.participante.id
+            db.flush()
     return conversa
 
 
