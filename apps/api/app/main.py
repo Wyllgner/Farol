@@ -7,6 +7,7 @@ from app.api import (
     atendimento,
     busca,
     canal,
+    demo,
     fila,
     governanca,
     radar,
@@ -37,6 +38,7 @@ app.include_router(fila.router)
 app.include_router(antecipacao.router)
 app.include_router(radar.router)
 app.include_router(governanca.router)
+app.include_router(demo.router)
 
 
 @app.get("/health")
