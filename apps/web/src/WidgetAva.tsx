@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  IconeConversa,
+  IconeEnviar,
+  IconeFarol,
+  IconeFechar,
+  IconeFonte,
+} from './componentes/Icones'
 import { agora, comNegrito, type Balao } from './tipos'
 
 type Props = {
@@ -70,40 +77,47 @@ export default function WidgetAva({ handle, pagina }: Props) {
     return (
       <button
         onClick={() => setAberto(true)}
-        className="fixed bottom-6 right-6 flex items-center gap-2 rounded-full bg-marinho-700 px-5 text-white shadow-lg"
+        className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full bg-azul px-5 text-sobre-azul shadow-lg transition-colors hover:bg-azul-escuro sm:right-6 sm:bottom-6"
       >
-        <span aria-hidden>💬</span> Precisa de ajuda?
+        <IconeConversa className="h-5 w-5" />
+        <span className="text-sm font-semibold">Precisa de ajuda?</span>
       </button>
     )
   }
 
   return (
     <section
-      className="fixed bottom-6 right-6 flex w-[22rem] flex-col overflow-hidden rounded-[--radius-suave] border border-neutro-300 bg-white shadow-2xl"
+      /* No celular ocupa a tela inteira; no desktop é uma janela flutuante. */
+      className="fixed inset-0 z-40 flex flex-col bg-superficie sm:inset-auto sm:right-6 sm:bottom-6 sm:h-[34rem] sm:w-[23rem] sm:rounded-[--radius-card] sm:border sm:border-borda sm:shadow-2xl"
       aria-label="Assistente da Escola"
     >
-      <header className="flex items-center justify-between bg-marinho-700 px-4 py-3 text-white">
-        <div className="min-w-0">
-          <p className="font-semibold">FAROL</p>
-          <p className="truncate text-xs text-white/75">{pagina}</p>
+      <header className="flex items-center justify-between gap-3 bg-azul px-4 py-3 text-sobre-azul sm:rounded-t-[--radius-card]">
+        <div className="flex min-w-0 items-center gap-2">
+          <IconeFarol className="h-6 w-6 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-bold tracking-wide uppercase">Farol</p>
+            <p className="truncate text-xs text-sobre-azul/80">{pagina}</p>
+          </div>
         </div>
         <button
           onClick={() => setAberto(false)}
-          className="text-2xl leading-none"
+          className="shrink-0 text-sobre-azul"
           aria-label="Fechar assistente"
         >
-          ×
+          <IconeFechar className="h-5 w-5" />
         </button>
       </header>
+      <div className="h-0.5 bg-ciano" aria-hidden />
 
       <div
-        className="h-80 space-y-3 overflow-y-auto bg-neutro-50 px-3 py-4"
+        className="flex-1 space-y-3 overflow-y-auto bg-superficie-alt px-3 py-4"
         role="log"
         aria-live="polite"
       >
         {baloes.length === 0 && (
-          <p className="text-sm text-neutro-600">
-            Vi que você está em <strong>{pagina}</strong>. Como posso ajudar?
+          <p className="rounded-[--radius-card] border border-borda bg-superficie p-3 text-sm text-texto-suave">
+            Vi que você está em <strong className="text-azul-titulo">{pagina}</strong>.
+            Como posso ajudar?
           </p>
         )}
 
@@ -114,36 +128,42 @@ export default function WidgetAva({ handle, pagina }: Props) {
           >
             <div
               className={[
-                'max-w-[85%] rounded-[--radius-suave] px-3 py-2 text-base',
+                'max-w-[85%] rounded-[--radius-card] px-3 py-2 text-base',
                 b.direcao === 'entrada'
-                  ? 'bg-marinho-700 text-white'
-                  : 'border border-neutro-300 bg-white text-neutro-900',
+                  ? 'rounded-tr-sm bg-azul text-sobre-azul'
+                  : 'rounded-tl-sm border border-borda bg-superficie text-texto',
               ].join(' ')}
             >
               <p
-                className="whitespace-pre-wrap break-words"
+                className="break-words whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{ __html: comNegrito(b.texto) }}
               />
               {b.fontes && b.fontes.length > 0 && (
-                <p className="mt-2 border-t border-neutro-100 pt-1 text-xs opacity-75">
-                  Fonte: {b.fontes.map((f) => f.documento).join(' · ')}
+                <p className="mt-2 flex items-start gap-1.5 border-t border-borda pt-1.5 text-xs text-texto-suave">
+                  <IconeFonte className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{b.fontes.map((f) => f.documento).join(' · ')}</span>
                 </p>
               )}
             </div>
           </div>
         ))}
 
-        {carregando && <p className="text-sm text-neutro-600">Consultando…</p>}
+        {carregando && (
+          <p className="text-sm text-texto-suave">
+            <span className="sr-only">Consultando a base oficial</span>
+            <span aria-hidden>Consultando…</span>
+          </p>
+        )}
         <div ref={fim} />
       </div>
 
       {acoes.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-t border-neutro-100 bg-white px-3 py-2">
+        <div className="flex flex-wrap gap-2 border-t border-borda bg-superficie px-3 py-2">
           {acoes.map((acao) => (
             <button
               key={acao}
               onClick={() => enviar(acao)}
-              className="rounded-full border border-marinho-500 px-3 text-sm text-marinho-700"
+              className="rounded-full border border-azul px-3 text-sm font-semibold text-azul-titulo hover:bg-azul-100"
             >
               {acao}
             </button>
@@ -152,28 +172,29 @@ export default function WidgetAva({ handle, pagina }: Props) {
       )}
 
       <form
-        className="flex gap-2 border-t border-neutro-300 p-2"
+        className="flex gap-2 border-t border-borda bg-superficie p-2 sm:rounded-b-[--radius-card]"
         onSubmit={(e) => {
           e.preventDefault()
           enviar(rascunho)
         }}
       >
         <label htmlFor="widget-msg" className="sr-only">
-          Mensagem
+          Escreva sua dúvida
         </label>
         <input
           id="widget-msg"
           value={rascunho}
           onChange={(e) => setRascunho(e.target.value)}
           placeholder="Escreva sua dúvida"
-          className="min-h-[44px] flex-1 rounded-[--radius-suave] border border-neutro-300 px-3 text-base"
+          className="flex-1 rounded-[--radius-controle] border border-borda bg-superficie-alt px-3 text-base text-texto placeholder:text-texto-suave"
         />
         <button
           type="submit"
           disabled={!rascunho.trim() || carregando}
-          className="rounded-[--radius-suave] bg-marinho-700 px-4 text-white disabled:opacity-40"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-[--radius-controle] bg-azul text-sobre-azul hover:bg-azul-escuro disabled:opacity-40"
+          aria-label="Enviar"
         >
-          Enviar
+          <IconeEnviar className="h-5 w-5" />
         </button>
       </form>
     </section>
