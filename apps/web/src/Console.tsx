@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  Botao,
+  CabecalhoConteudo,
+  Cartao,
+  ESTILO_ENTRADA,
+  TituloSecao,
+} from './componentes/Ui'
 
 type Estado = {
   modo_ensaio: boolean
@@ -23,7 +30,6 @@ type Cenario = {
 }
 
 type Props = {
-  /** Troca o participante das superfícies do participante. */
   aoEscolherParticipante: (telefone: string) => void
   handleAtual: string
 }
@@ -104,43 +110,34 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
 
   return (
     <div className="space-y-8">
-      <header>
-        <p className="text-xs font-medium tracking-widest text-dourado-600 uppercase">
-          Apresentação
-        </p>
-        <h2 className="text-2xl font-semibold text-marinho-900">
-          Console de Demonstração
-        </h2>
-        <p className="mt-1 max-w-2xl text-sm text-neutro-600">
-          Os botões chamam exatamente as mesmas funções que o agendador
-          chamaria. O que se demonstra aqui é o que roda em produção.
-        </p>
-      </header>
+      <CabecalhoConteudo
+        chapeu="Apresentação"
+        titulo="Console de Demonstração"
+        descricao="Os botões chamam exatamente as mesmas funções que o agendador chamaria. O que se demonstra aqui é o que roda em produção."
+      />
 
       {aviso && (
         <p
           role="status"
-          className="rounded-[--radius-suave] bg-neutro-100 p-3 font-mono text-xs break-all text-neutro-900"
+          className="rounded-[--radius-controle] bg-superficie-alt p-3 font-mono text-xs break-all text-texto"
         >
           {aviso}
         </p>
       )}
 
       <section>
-        <h3 className="text-sm font-semibold tracking-wide text-neutro-600 uppercase">
-          Controles
-        </h3>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <TituloSecao nivel={3}>Controles</TituloSecao>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {/* Teal: tudo que é proativo/antecipação. */}
           <Botao
+            tom="proativo"
             disabled={ocupado}
-            onClick={() =>
-              acao('disparar-gatilhos', undefined, 'Gatilhos disparados.')
-            }
+            onClick={() => acao('disparar-gatilhos', undefined, 'Gatilhos disparados.')}
           >
             Disparar gatilhos
           </Botao>
 
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-2">
             <label htmlFor="dias" className="sr-only">
               Dias para avançar
             </label>
@@ -151,19 +148,18 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
               max={365}
               value={dias}
               onChange={(e) => setDias(Number(e.target.value))}
-              className="min-h-[44px] w-20 rounded-[--radius-suave] border border-neutro-300 px-2 text-base"
+              className={`${ESTILO_ENTRADA} w-20`}
             />
             <Botao
               disabled={ocupado}
-              onClick={() =>
-                acao('avancar-tempo', { dias }, `Avançou ${dias} dia(s).`)
-              }
+              onClick={() => acao('avancar-tempo', { dias }, `Avançou ${dias} dia(s).`)}
             >
               Avançar tempo
             </Botao>
           </span>
 
           <Botao
+            tom="secundario"
             disabled={ocupado}
             onClick={() =>
               acao(
@@ -177,6 +173,7 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
           </Botao>
 
           <Botao
+            tom="secundario"
             disabled={ocupado}
             onClick={() =>
               acao('restaurar-saldos', undefined, 'Orçamento de atenção restaurado.')
@@ -186,14 +183,14 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
           </Botao>
 
           <Botao
+            tom="perigo"
             disabled={ocupado}
-            tom="alerta"
             onClick={() => acao('resetar', undefined, 'Mundo recriado do zero.')}
           >
             Resetar tudo
           </Botao>
         </div>
-        <p className="mt-2 text-xs text-neutro-600">
+        <p className="mt-3 text-xs text-texto-suave">
           Avançar o tempo também executa os laços que vencerem no caminho —
           deixar o relógio andar sem verificar produziria um estado que nunca
           existiria de verdade.
@@ -201,10 +198,8 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
       </section>
 
       <section>
-        <h3 className="text-sm font-semibold tracking-wide text-neutro-600 uppercase">
-          Trocar participante
-        </h3>
-        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+        <TituloSecao nivel={3}>Trocar participante</TituloSecao>
+        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {cenarios.map((c) => (
             <li key={c.telefone}>
               <button
@@ -214,17 +209,17 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
                 }}
                 aria-current={c.telefone === handleAtual ? 'true' : undefined}
                 className={[
-                  'w-full rounded-[--radius-suave] border p-3 text-left',
+                  'w-full rounded-[--radius-card] border p-4 text-left transition-colors',
                   c.telefone === handleAtual
-                    ? 'border-marinho-500 bg-marinho-50'
-                    : 'border-neutro-300 bg-white',
+                    ? 'border-azul bg-azul-100'
+                    : 'border-borda bg-superficie hover:bg-superficie-alt',
                 ].join(' ')}
               >
-                <p className="text-xs font-semibold text-marinho-700 uppercase">
+                <p className="text-xs font-bold tracking-wider text-azul-titulo uppercase">
                   {c.rotulo}
                 </p>
-                <p className="mt-0.5 text-neutro-900">{c.nome}</p>
-                <p className="text-xs text-neutro-600">{c.detalhe}</p>
+                <p className="mt-1 font-medium text-texto">{c.nome}</p>
+                <p className="text-xs text-texto-suave">{c.detalhe}</p>
               </button>
             </li>
           ))}
@@ -233,21 +228,19 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
 
       {estado && (
         <section>
-          <h3 className="text-sm font-semibold tracking-wide text-neutro-600 uppercase">
-            Estado do mundo
-          </h3>
-          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <TituloSecao nivel={3}>Estado do mundo</TituloSecao>
+          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {Object.entries(estado)
               .filter(([, v]) => typeof v === 'number')
               .map(([chave, valor]) => (
                 <div
                   key={chave}
-                  className="rounded-[--radius-suave] border border-neutro-300 bg-white p-3"
+                  className="rounded-[--radius-card] border border-borda bg-superficie p-3"
                 >
-                  <dt className="text-xs text-neutro-600">
+                  <dt className="text-xs text-texto-suave">
                     {chave.replaceAll('_', ' ')}
                   </dt>
-                  <dd className="text-2xl font-semibold text-marinho-900">
+                  <dd className="text-2xl font-bold text-azul-titulo">
                     {String(valor)}
                   </dd>
                 </div>
@@ -257,54 +250,26 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
       )}
 
       <section>
-        <h3 className="text-sm font-semibold tracking-wide text-neutro-600 uppercase">
-          Roteiro de 6 minutos
-        </h3>
-        <ol className="mt-3 space-y-2">
+        <TituloSecao nivel={3}>Roteiro de 6 minutos</TituloSecao>
+        <ol className="mt-4 space-y-2">
           {ROTEIRO.map((r, i) => (
-            <li
-              key={r.passo}
-              className="flex gap-3 rounded-[--radius-suave] border border-neutro-300 bg-white p-3"
-            >
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-marinho-700 text-sm text-white">
-                {i + 1}
-              </span>
-              <div>
-                <p className="font-medium text-marinho-900">{r.passo}</p>
-                <p className="text-sm text-neutro-900">{r.acao}</p>
-                <p className="text-xs text-neutro-600 italic">{r.porque}</p>
-              </div>
+            <li key={r.passo}>
+              <Cartao className="flex gap-4">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-azul text-sm font-bold text-sobre-azul">
+                  {i + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-bold tracking-wide text-azul-titulo uppercase">
+                    {r.passo}
+                  </p>
+                  <p className="text-sm text-texto">{r.acao}</p>
+                  <p className="mt-0.5 text-xs text-texto-suave italic">{r.porque}</p>
+                </div>
+              </Cartao>
             </li>
           ))}
         </ol>
       </section>
     </div>
-  )
-}
-
-function Botao({
-  children,
-  onClick,
-  disabled,
-  tom,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  disabled?: boolean
-  tom?: 'alerta'
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        'rounded-[--radius-suave] px-4 text-sm font-medium disabled:opacity-40',
-        tom === 'alerta'
-          ? 'border border-dourado-600 text-dourado-600'
-          : 'bg-marinho-700 text-white',
-      ].join(' ')}
-    >
-      {children}
-    </button>
   )
 }
