@@ -7,6 +7,7 @@ Toda decisao (quando escalar, o que e sensivel) e regra deterministica fora daqu
 
 import json
 import logging
+import re
 
 from openai import APIError, AsyncOpenAI
 
@@ -29,7 +30,9 @@ REGRAS INEGOCIAVEIS:
 2. Se os trechos nao sustentarem a resposta, devolva nao_sei = true.
 3. Nunca invente prazo, link, procedimento ou numero.
 4. Maximo 3 frases. Linguagem de pessoa, nao de sistema.
-5. Em "fontes", liste apenas ids de trechos realmente usados."""
+5. Em "fontes", liste apenas ids de trechos realmente usados.
+6. NUNCA escreva o id do trecho dentro do texto da resposta. A pessoa do
+   outro lado nao sabe o que e um id, e citar isso quebra a leitura."""
 
 # Schema estrito: garante que toda resposta chegue com o campo de fontes,
 # que e o que a verificacao de ancoragem (F11) confere na Fase 2.
@@ -132,12 +135,16 @@ class OpenAIProvider:
 
         dados = json.loads(conteudo)
         ids_validos = {t["id"] for t in trechos}
+        # Cinto e suspensorio: mesmo instruido, o modelo as vezes cita o id
+        # no meio da frase. A citacao vive no campo de fontes; o texto que
+        # a pessoa le nao deve conter identificador nenhum.
+        texto = _limpar_citacoes(dados["texto"], ids_validos)
         # O modelo pode citar um id que nao existe. Uma fonte inventada e
         # exatamente o que a ancoragem existe para impedir, entao ela cai aqui.
         fontes = [f for f in dados["fontes"] if f in ids_validos]
 
         return RespostaAncorada(
-            texto=dados["texto"],
+            texto=texto,
             fontes=fontes,
             nao_sei=dados["nao_sei"] or not fontes,
         )
@@ -146,3 +153,14 @@ class OpenAIProvider:
         from app.llm.embeddings import embutir
 
         return await embutir(textos)
+
+
+def _limpar_citacoes(texto: str, ids: set[str]) -> str:
+    """Remove ids de trecho que tenham escapado para o texto visivel."""
+    for identificador in ids:
+        texto = texto.replace(f"[{identificador}]", "").replace(identificador, "")
+    # Sobras tipicas: "Conforme o trecho , ..." e espacos duplicados.
+    texto = re.sub(r"\s*\[\s*\]", "", texto)
+    texto = re.sub(r"(?i)\bconforme o trecho\s*[,:]?\s*", "", texto)
+    texto = re.sub(r"\s{2,}", " ", texto)
+    return texto.strip()
