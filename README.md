@@ -2,7 +2,7 @@
 
 **Fluxo de Atendimento, Resolução e Orientação em Laço**
 
-Solução para o desafio da Seção de Coordenação de Educação a Distância — EMERON / TJRO.
+Solução para o desafio da Seção de Coordenação de Educação a Distância: EMERON / TJRO.
 
 > Responde antes da pergunta. E trabalha para nunca mais precisar responder.
 
@@ -18,7 +18,7 @@ Uma camada de atendimento inteligente de três andares, entregue nos canais que 
 | **Resolver** | Responde sobre o caso individual da pessoa, ancorado em fonte oficial; recusa quando não sabe e escala com dossiê pronto |
 | **Extinguir** | Descobre onde na jornada a dúvida nasce e emite ordens de correção da plataforma |
 
-O princípio arquitetural é que **nenhuma ação termina no envio — toda ação termina na verificação do efeito**. O sistema avisa e confere se evitou o atendimento; responde e confere se resolveu; aponta a causa e confere se o volume caiu.
+O princípio arquitetural é que **nenhuma ação termina no envio: toda ação termina na verificação do efeito**. O sistema avisa e confere se evitou o atendimento; responde e confere se resolveu; aponta a causa e confere se o volume caiu.
 
 Detalhamento completo em [`farol-v2-documento-mestre.md`](./farol-v2-documento-mestre.md).
 
@@ -48,7 +48,7 @@ make setup     # instala dependências e cria o .env
 make dev       # sobe banco, API e front
 ```
 
-- API: `http://localhost:8000` — estado do sistema em `/health`
+- API: `http://localhost:8000`, estado do sistema em `/health`
 - Front: `http://localhost:5173`
 
 Outros alvos: `make migrate`, `make test`, `make lint`, `make reset`.
@@ -57,7 +57,7 @@ Outros alvos: `make migrate`, `make test`, `make lint`, `make reset`.
 
 ## Decisões que valem explicação
 
-**O canal WhatsApp é uma réplica de interface, não a API oficial.** Ela fala com o backend pelo mesmo contrato de adaptador que a Cloud API usaria, recebendo payloads em formato de webhook. Trocar em produção é registrar outra implementação — a camada não é um atalho, é a arquitetura correta com implementação trocável.
+**O canal WhatsApp é uma réplica de interface, não a API oficial.** Ela fala com o backend pelo mesmo contrato de adaptador que a Cloud API usaria, recebendo payloads em formato de webhook. Trocar em produção é registrar outra implementação: a camada não é um atalho, é a arquitetura correta com implementação trocável.
 
 **O log de auditoria é imutável no banco, não por convenção.** Um trigger recusa `UPDATE` e `DELETE`. Rastreabilidade é requisito não negociável em ambiente judiciário, e disciplina de código não é garantia.
 
