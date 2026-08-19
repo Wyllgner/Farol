@@ -5,7 +5,7 @@ import EspelhoWhatsApp from './EspelhoWhatsApp'
 import FilaServidor from './FilaServidor'
 import Indicadores from './Indicadores'
 import RadarCausas from './RadarCausas'
-import WidgetAva from './WidgetAva'
+import TelasAva from './TelasAva'
 import {
   IconeBalanca,
   IconeConsole,
@@ -189,7 +189,7 @@ export default function App() {
           {superficie === 'whatsapp' && (
             <EspelhoWhatsApp key={handle} handle={handle} />
           )}
-          {superficie === 'ava' && <PaginaAva handle={handle} />}
+          {superficie === 'ava' && <TelasAva handle={handle} />}
           {superficie === 'fila' && <FilaServidor />}
           {superficie === 'radar' && <RadarCausas />}
           {superficie === 'indicadores' && <Indicadores />}
@@ -247,34 +247,3 @@ function IdentificacaoNoPalco({
   )
 }
 
-/** Simula a página do AVA em que o widget vive, para dar contexto real. */
-function PaginaAva({ handle }: { handle: string }) {
-  const pagina = 'Direito Digital e Proteção de Dados — Módulo 2'
-
-  return (
-    <>
-      <article className="rounded-[--radius-card] border border-borda bg-superficie p-6 sm:p-8">
-        <p className="text-xs font-semibold tracking-[0.16em] text-texto-suave uppercase">
-          Ambiente Virtual de Aprendizagem
-        </p>
-        <h2 className="mt-1 text-xl font-bold tracking-wide uppercase">{pagina}</h2>
-        <div className="mt-4 h-0.5 w-24 bg-ciano" aria-hidden />
-
-        <div className="mt-6 space-y-3" aria-hidden>
-          <div className="h-3 w-3/4 rounded bg-superficie-alt" />
-          <div className="h-3 w-full rounded bg-superficie-alt" />
-          <div className="h-3 w-5/6 rounded bg-superficie-alt" />
-          <div className="h-32 rounded bg-superficie-alt" />
-          <div className="h-3 w-2/3 rounded bg-superficie-alt" />
-        </div>
-
-        <p className="mt-6 text-sm text-texto-suave">
-          O widget conhece a página em que a pessoa está e envia esse contexto
-          junto da pergunta.
-        </p>
-      </article>
-
-      <WidgetAva handle={handle} pagina={pagina} />
-    </>
-  )
-}
