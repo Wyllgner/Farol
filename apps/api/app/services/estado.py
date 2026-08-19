@@ -137,7 +137,16 @@ def resumir_para_prompt(estado: dict, categoria: str | None = None) -> str:
                 )
             )
         if "prazo" in campos and curso["dias_ate_o_prazo"] is not None:
-            partes.append(f"faltam {curso['dias_ate_o_prazo']} dias para o prazo")
+            # Prazo vencido e um numero negativo, e "faltam -7 dias para o
+            # prazo" vaza aritmetica para dentro da resposta que a pessoa
+            # le. Quem esta atrasado precisa ouvir que esta atrasado.
+            dias = curso["dias_ate_o_prazo"]
+            if dias < 0:
+                partes.append(f"prazo vencido ha {abs(dias)} dias")
+            elif dias == 0:
+                partes.append("o prazo termina hoje")
+            else:
+                partes.append(f"faltam {dias} dias para o prazo")
 
         # O nome do curso sai sempre: e ele que faz a resposta ser sobre
         # o caso da pessoa, e nao sobre "o curso" em abstrato.

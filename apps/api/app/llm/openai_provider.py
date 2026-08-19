@@ -21,6 +21,20 @@ logger = logging.getLogger(__name__)
 _SISTEMA_CLASSIFICACAO = """Voce classifica mensagens recebidas pela Escola da \
 Magistratura de Rondonia (EMERON) em exatamente uma das categorias listadas.
 
+A categoria "sensivel" tem precedencia sobre o assunto aparente da
+mensagem. Marque "sensivel" sempre que houver:
+- saude, doenca, cirurgia, internacao, luto ou licenca medica;
+- pedido de EXCECAO, prorrogacao ou tratamento individual fora da regra
+  (a duvida sobre qual e o prazo continua sendo "prazo"; pedir para
+  mudar o prazo por causa de uma situacao pessoal e "sensivel");
+- dado pessoal sensivel, questao financeira ou juridica individual;
+- urgencia declarada, sofrimento ou situacao de vulnerabilidade.
+
+Uma mensagem que fala de prazo E de cirurgia e "sensivel", nao "prazo":
+quem decide excecao e uma pessoa, nunca o sistema. Errar para "sensivel"
+custa uma passagem por um servidor; errar para o assunto aparente faz o
+sistema decidir no lugar de quem tem competencia para isso.
+
 Devolva tambem "no_escopo":
 - true: a mensagem tem qualquer relacao com a Escola, seus cursos, o AVA,
   inscricao, prazo, aula, certificado, cadastro, atendimento ou com a vida

@@ -168,12 +168,26 @@ def cenarios(db: Session) -> list[Cenario]:
     return encontrados
 
 
+# Marcador dos eventos proativos semeados por app.seed.historico. Precisa
+# continuar igual la: e o unico jeito de distinguir o passado semeado do
+# que o ensaio acabou de gerar.
+HIPOTESE_DO_HISTORICO = (
+    "Se esta orientacao chegar agora, esta pessoa nao precisara abrir "
+    "atendimento sobre o assunto em 7 dias."
+)
+
+
 def restaurar_saldos(db: Session) -> dict:
     """Devolve o saldo de atencao a todos.
 
     Depois de um ensaio, o orcamento esta gasto e os gatilhos param de
     disparar. Sem isto, a segunda passagem da demo mostraria zero
     mensagens e pareceria defeito.
+
+    Apaga apenas os eventos do ensaio. O historico semeado fica: e dele
+    que saem os atendimentos evitados do painel, e um "restaurar saldos"
+    antes de apresentar zerava a metrica principal poucos minutos antes
+    da banca olhar para ela.
     """
     total = db.execute(
         text(
@@ -181,7 +195,10 @@ def restaurar_saldos(db: Session) -> dict:
         ),
         {"saldo": 4},
     ).rowcount
-    db.execute(text("DELETE FROM evento_proativo"))
+    db.execute(
+        text("DELETE FROM evento_proativo WHERE hipotese <> :historico"),
+        {"historico": HIPOTESE_DO_HISTORICO},
+    )
     db.flush()
     auditoria.registrar(db, "demo_restaurou_saldos", {"participantes": total})
     return {"participantes": total or 0}

@@ -44,9 +44,29 @@ from app.models import (
     OrdemCorrecao,
     Participante,
 )
+from app.services import demo
 
 # Mesma semente do seed principal: a demonstracao precisa ser reproduzivel.
 random.seed(42)
+
+# Os participantes que o console oferece como cenario NAO entram no
+# historico de mensagens proativas.
+#
+# O motor barra um gatilho que ja disparou para a mesma pessoa, e essa
+# regra e correta: ninguem quer receber o mesmo aviso duas vezes. Mas o
+# historico gera 322 eventos sobre 60 pessoas, entao quase todo mundo
+# fica bloqueado, e o "ele fala primeiro" da demonstracao nao acontece
+# justamente com a pessoa que quem apresenta escolheu na tela.
+#
+# Eles continuam recebendo casos historicos: o que se preserva aqui e so
+# o direito de serem interrompidos ao vivo.
+CENARIOS_DA_DEMO = {
+    "+556990000000",  # nunca acessou
+    "+556990000001",  # 2FA pendente
+    "+556990000002",  # prazo apertado
+    "+556990000004",  # certificado liberado
+    "+556990000017",  # optou por nao receber
+}
 
 SEMANAS = 12
 
@@ -157,6 +177,31 @@ ORDENS = [
         "conclusao": "Previsao de 5 casos/mes a menos; medido 5. Causa extinta.",
     },
     {
+        # A ordem que ainda espera decisao. O Radar mostra UMA recomendacao
+        # por vez, e sem nenhuma pendente de peso ele destaca o que sobrou
+        # da ultima analise: a tela de recomendacao vira tela de resto.
+        "rotulo": "Nao saber onde fica a sala da webconferencia ao vivo",
+        "hipotese": (
+            "As pessoas perguntam onde e a sala ao vivo porque o convite chega "
+            "por e-mail um dia antes e nao fica em lugar nenhum dentro do AVA."
+        ),
+        "evidencia": (
+            "57 casos agrupados por similaridade semantica nas ultimas 4 semanas; "
+            "68% chegam entre 30 e 90 minutos antes do inicio da sessao; "
+            "taxa de travamento na aresta consumo_conteudo -> webconferencia e de 29%."
+        ),
+        "acao": (
+            "Fixar o convite da proxima sessao ao vivo no topo da pagina do curso, "
+            "com data, hora e botao de entrada, ate o fim da transmissao."
+        ),
+        "semana_emissao": 11,
+        "semana_implementacao": None,
+        "previsao": 14,
+        "medido": None,
+        "situacao": SituacaoOrdem.PENDENTE,
+        "conclusao": None,
+    },
+    {
         "rotulo": "Nao encontrar o curso na plataforma apos entrar",
         "hipotese": (
             "As pessoas nao acham o curso porque o menu 'Meus cursos' usa um "
@@ -226,10 +271,10 @@ MARCADOR = "seed:historico"
 # Hipotese textual dos eventos proativos historicos. Evento nao tem
 # conversa, entao o marcador dele e o proprio texto que so o historico
 # escreve.
-HIPOTESE = (
-    "Se esta orientacao chegar agora, esta pessoa nao precisara abrir "
-    "atendimento sobre o assunto em 7 dias."
-)
+# Definida em services.demo porque o console precisa dela para preservar o
+# historico ao restaurar saldos. Duas copias do mesmo texto viravam duas
+# verdades no dia em que uma delas mudasse.
+HIPOTESE = demo.HIPOTESE_DO_HISTORICO
 
 
 def _limpar_historico(db) -> dict:
@@ -411,8 +456,11 @@ def semear_historico() -> dict:
                 "sem_2fa", "webconferencia_hoje", "prazo_apertado",
                 "certificado_parado", "nunca_acessou",
             ]
+            elegiveis = [
+                p for p in participantes if p.telefone not in CENARIOS_DA_DEMO
+            ]
             for i in range(entregues):
-                participante = random.choice(participantes)
+                participante = random.choice(elegiveis)
                 enviado = inicio + timedelta(
                     days=random.randint(0, 6), hours=random.randint(9, 17)
                 )
@@ -444,8 +492,13 @@ def semear_historico() -> dict:
             db.flush()
 
             emissao = ancora - timedelta(days=(SEMANAS - dados["semana_emissao"]) * 7)
-            implementada = ancora.date() - timedelta(
-                days=(SEMANAS - dados["semana_implementacao"]) * 7
+            # A ordem pendente ainda nao foi implementada nem medida: ela e o
+            # que o gestor tem para decidir hoje.
+            implementada = (
+                None
+                if dados["semana_implementacao"] is None
+                else ancora.date()
+                - timedelta(days=(SEMANAS - dados["semana_implementacao"]) * 7)
             )
             ordem = OrdemCorrecao(
                 agrupamento_id=agrupamento.id,
@@ -455,7 +508,7 @@ def semear_historico() -> dict:
                 previsao_queda_mensal=dados["previsao"],
                 volume_base_mensal=dados["previsao"] * 2,
                 implementada_em=implementada,
-                medir_em=implementada + timedelta(days=30),
+                medir_em=None if implementada is None else implementada + timedelta(days=30),
                 resultado_medido=dados["medido"],
                 situacao=dados["situacao"],
                 conclusao=dados["conclusao"],
@@ -477,6 +530,9 @@ def semear_historico() -> dict:
             "ordens": len(ORDENS),
             "causas_extintas": sum(
                 1 for o in ORDENS if o["situacao"] is SituacaoOrdem.CONFIRMADA
+            ),
+            "ordens_pendentes": sum(
+                1 for o in ORDENS if o["situacao"] is SituacaoOrdem.PENDENTE
             ),
         }
 
