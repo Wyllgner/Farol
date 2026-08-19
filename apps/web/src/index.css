@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Identidade visual — EMERON / TJRO
+   Identidade visual: EMERON / TJRO
    Todas as cores do sistema vivem aqui. Nenhum componente escreve cor
    literal: se um tom nao esta nesta lista, ele nao existe no produto.
    ========================================================================== */
@@ -30,6 +30,23 @@
   --farol-sucesso: #1e7b57;
   --farol-alerta: #b45309;
   --farol-erro: #b3261e;
+
+  /* --- series de grafico ---
+     Ordem fixa: a serie 1 e sempre azul, a 2 sempre laranja. Cor segue a
+     entidade, nunca a posicao no ranking, senao filtrar um item repinta
+     os que sobraram e a leitura da semana passada deixa de valer.
+
+     Os quatro tons passaram no validador de paleta categorica: faixa de
+     luminosidade, piso de croma, separacao sob deuteranopia/protanopia/
+     tritanopia (pior par 14.3 dE) e contraste >= 3:1 contra a superficie.
+     Trocar um tom no olho quebra isso silenciosamente. */
+  --serie-1: #2e76aa;
+  --serie-2: #c2620a;
+  --serie-3: #0f9488;
+  --serie-4: #7c4bb8;
+  /* "outras" nao e uma serie, e o resto: cinza, e nunca uma quinta cor. */
+  --serie-resto: #8595a5;
+  --grade: #e8eef4;
 }
 
 /* As utilidades do Tailwind sao geradas a partir dos mesmos tokens, para
@@ -52,6 +69,13 @@
   --color-texto-suave: var(--farol-texto-suave);
   --color-sobre-azul: var(--farol-texto-sobre-azul);
 
+  --color-serie-1: var(--serie-1);
+  --color-serie-2: var(--serie-2);
+  --color-serie-3: var(--serie-3);
+  --color-serie-4: var(--serie-4);
+  --color-serie-resto: var(--serie-resto);
+  --color-grade: var(--grade);
+
   --color-sucesso: var(--farol-sucesso);
   --color-alerta: var(--farol-alerta);
   --color-erro: var(--farol-erro);
@@ -61,6 +85,66 @@
 
   --radius-card: 12px;
   --radius-controle: 8px;
+}
+
+/* ==========================================================================
+   Paleta do canal WhatsApp
+   O espelho reproduz uma interface de terceiro, entao ele NAO usa a paleta
+   institucional: um WhatsApp azul-EMERON nao convenceria ninguem de que a
+   solucao chega onde a pessoa ja esta. Estas cores sao do canal, ficam
+   isoladas neste bloco e nao vazam para o resto do produto.
+   ========================================================================== */
+:root {
+  --zap-barra: #008069;
+  --zap-barra-escura: #017561;
+  --zap-fundo: #efeae2;
+  --zap-recebida: #ffffff;
+  --zap-enviada: #d9fdd3;
+  --zap-texto: #111b21;
+  --zap-hora: #667781;
+  --zap-tique: #53bdeb;
+  --zap-acao: #027eb5;
+  --zap-envio: #00a884;
+  --zap-composicao: #f0f2f5;
+  --zap-aviso: #ffeecd;
+  --zap-aviso-texto: #8b6f3e;
+  --zap-divisor: rgb(0 0 0 / 8%);
+  --zap-moldura: #0d0f10;
+  /* Palco do espelho. Nao e preto de proposito: a moldura do aparelho e
+     quase preta, e preto sobre preto apaga justamente a silhueta do
+     celular, que e a coisa que precisa ser reconhecida. Este cinza-azulado
+     deixa a borda aparecer com folga.
+     O campo e a borda acompanham o palco: contra um fundo mais claro, um
+     campo quase preto vira um buraco na tela em vez de um controle. */
+  --zap-palco: #222c37;
+  --zap-palco-alto: #2f3b48;
+  --zap-palco-texto: #e7edf3;
+  --zap-palco-suave: #94a3b2;
+  --zap-palco-borda: #3d4a58;
+  --zap-palco-campo: #18202a;
+}
+
+@theme inline {
+  --color-zap-barra: var(--zap-barra);
+  --color-zap-barra-escura: var(--zap-barra-escura);
+  --color-zap-fundo: var(--zap-fundo);
+  --color-zap-recebida: var(--zap-recebida);
+  --color-zap-enviada: var(--zap-enviada);
+  --color-zap-texto: var(--zap-texto);
+  --color-zap-hora: var(--zap-hora);
+  --color-zap-tique: var(--zap-tique);
+  --color-zap-acao: var(--zap-acao);
+  --color-zap-envio: var(--zap-envio);
+  --color-zap-composicao: var(--zap-composicao);
+  --color-zap-aviso: var(--zap-aviso);
+  --color-zap-aviso-texto: var(--zap-aviso-texto);
+  --color-zap-moldura: var(--zap-moldura);
+  --color-zap-palco: var(--zap-palco);
+  --color-zap-palco-alto: var(--zap-palco-alto);
+  --color-zap-palco-texto: var(--zap-palco-texto);
+  --color-zap-palco-suave: var(--zap-palco-suave);
+  --color-zap-palco-borda: var(--zap-palco-borda);
+  --color-zap-palco-campo: var(--zap-palco-campo);
 }
 
 /* ==========================================================================
@@ -91,7 +175,7 @@
     text-wrap: balance;
   }
 
-  /* Alvos de toque de 44px — requisito, nao recomendacao. */
+  /* Alvos de toque de 44px: requisito, nao recomendacao. */
   button,
   [role="button"],
   input,
@@ -156,4 +240,65 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ==========================================================================
+   Espelho do WhatsApp
+   ========================================================================== */
+
+/* O papel de parede rabiscado da conversa. E um padrao proprio em SVG, e
+   nao o arquivo da Meta: reproduzir a sensacao da tela nao autoriza
+   redistribuir o asset dela. */
+.zap-papel {
+  background-color: var(--zap-fundo);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='%23d9cec2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' opacity='0.75'%3E%3Cpath d='M24 30h18v13H31l-4 5z'/%3E%3Ccircle cx='96' cy='34' r='7'/%3E%3Cpath d='M92 34h8M96 30v8'/%3E%3Cpath d='M150 26l6 10-6 10-6-10z'/%3E%3Cpath d='M198 28c6-4 13 0 13 6s-7 10-13 6'/%3E%3Cpath d='M234 24v16M228 32h12'/%3E%3Cpath d='M30 92c5-6 13-6 18 0'/%3E%3Cpath d='M34 100h10'/%3E%3Crect x='78' y='84' width='20' height='16' rx='3'/%3E%3Cpath d='M84 84v-4h8v4'/%3E%3Cpath d='M132 88l10 6-10 6z'/%3E%3Ccircle cx='186' cy='94' r='9'/%3E%3Cpath d='M186 88v6l4 3'/%3E%3Cpath d='M226 86h16v14h-9l-7 5z'/%3E%3Cpath d='M26 150h16v12H26z'/%3E%3Cpath d='M26 150l8 7 8-7'/%3E%3Cpath d='M80 146l5 11 12 1-9 8 3 12-11-6-11 6 3-12-9-8 12-1z'/%3E%3Cpath d='M138 148v14M132 155h12'/%3E%3Cpath d='M180 146c8 0 12 5 12 10s-4 10-12 10-12-5-12-10 4-10 12-10'/%3E%3Cpath d='M230 148l8 8-8 8-8-8z'/%3E%3Cpath d='M28 208c6-5 14-5 20 0'/%3E%3Ccircle cx='38' cy='216' r='3'/%3E%3Cpath d='M84 204h16l-3 16H87z'/%3E%3Cpath d='M136 202l4 9h10l-8 6 3 10-9-6-9 6 3-10-8-6h10z'/%3E%3Cpath d='M182 206h18v12h-18z'/%3E%3Cpath d='M186 206v-3h10v3'/%3E%3Cpath d='M226 204c7-3 14 2 14 8'/%3E%3Cpath d='M232 218h12'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat;
+  /* Denso e discreto, como no app: o rabisco tem que ficar no canto do
+     olho, nunca competir com o texto da mensagem. */
+  background-size: 190px 190px;
+}
+
+/* Rabinho do balao, o detalhe que mais denuncia uma imitacao quando falta. */
+.zap-rabo-recebida::before,
+.zap-rabo-enviada::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 9px;
+  height: 13px;
+}
+
+.zap-rabo-recebida::before {
+  left: -8px;
+  background: var(--zap-recebida);
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+}
+
+.zap-rabo-enviada::before {
+  right: -8px;
+  background: var(--zap-enviada);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+/* Palco do espelho: clarao suave atras do aparelho. Serve para separar o
+   celular do fundo sem precisar de moldura clara, que denunciaria a
+   simulacao. */
+.zap-palco {
+  background:
+    radial-gradient(
+      70% 55% at 50% 32%,
+      var(--zap-palco-alto) 0%,
+      var(--zap-palco) 62%
+    ),
+    var(--zap-palco);
+}
+
+/* O aparelho sobre o palco: sombra funda e um fio de luz na borda, que e
+   como um celular de verdade se destaca de um fundo escuro. */
+.zap-aparelho {
+  box-shadow:
+    0 2px 0 rgb(255 255 255 / 8%) inset,
+    0 0 0 1px rgb(255 255 255 / 10%),
+    0 30px 60px -12px rgb(0 0 0 / 70%),
+    0 0 90px -30px rgb(53 168 224 / 35%);
 }

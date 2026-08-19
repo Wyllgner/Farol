@@ -16,7 +16,7 @@ import {
   IconePagina,
   IconeRadar,
 } from './componentes/Icones'
-import Marca, { ASSINATURA, SLOGAN } from './componentes/Marca'
+import Marca from './componentes/Marca'
 import { Campo, ESTILO_ENTRADA } from './componentes/Ui'
 
 type Superficie =
@@ -54,6 +54,10 @@ export default function App() {
   const [menuAberto, setMenuAberto] = useState(false)
 
   const superficieDoParticipante = superficie === 'whatsapp' || superficie === 'ava'
+  // O espelho ganha palco escuro: sem nada em volta, o celular vira o
+  // unico objeto na tela, que e exatamente o que a demonstracao precisa
+  // que a banca olhe.
+  const palco = superficie === 'whatsapp'
 
   function navegar(destino: Superficie) {
     setSuperficie(destino)
@@ -62,12 +66,14 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-fundo">
-      {/* Barra superior fixa — marinho, a primeira das três áreas que o usam. */}
-      <header className="sticky top-0 z-30 bg-marinho">
-        <div className="mx-auto flex max-w-[90rem] items-center gap-4 px-4 py-3 sm:px-6">
+      {/* Barra superior so no celular. No desktop a marca vive no topo da
+          barra lateral e esta faixa nao existe; aqui ela sobrevive porque e
+          o unico lugar de onde o menu recolhido pode ser aberto. */}
+      <header className="sticky top-0 z-30 bg-marinho lg:hidden">
+        <div className="flex items-center gap-4 px-4 py-3 sm:px-6">
           <button
             onClick={() => setMenuAberto((v) => !v)}
-            className="text-sobre-azul lg:hidden"
+            className="text-sobre-azul"
             aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
             aria-expanded={menuAberto}
           >
@@ -75,25 +81,34 @@ export default function App() {
           </button>
 
           <Marca />
-
-          <p className="ml-auto hidden max-w-md text-right text-xs text-sobre-azul/70 italic xl:block">
-            {SLOGAN}
-          </p>
         </div>
-        {/* Régua ciano: acento fino que separa a barra do conteúdo. */}
         <div className="h-0.5 bg-ciano" aria-hidden />
       </header>
 
-      <div className="mx-auto flex w-full max-w-[90rem] flex-1 lg:gap-8 lg:px-6">
-        {/* Sidebar — segunda área marinho. */}
+      <div className="flex w-full flex-1">
+        {/* Sidebar: segunda area marinho. */}
         <nav
           aria-label="Superfícies"
           className={[
-            'bg-marinho lg:sticky lg:top-[4.25rem] lg:mt-6 lg:h-fit lg:w-64 lg:shrink-0 lg:rounded-[--radius-card]',
+            // Colada na margem esquerda e presa ao topo em todas as telas: a
+            // navegacao e o mapa da demonstracao, e um mapa que some quando a
+            // pagina rola nao serve para quem apresenta. A faixa marinho
+            // acompanha a altura da pagina; a lista dentro dela e que fica
+            // presa ao topo. Prender a faixa inteira empurrava os primeiros
+            // itens para fora da tela quando o conteudo era curto.
+            'bg-marinho lg:w-64 lg:shrink-0 lg:self-stretch',
             menuAberto ? 'block' : 'hidden lg:block',
           ].join(' ')}
         >
-          <ul className="space-y-1 p-3">
+          <div className="lg:sticky lg:top-0">
+            {/* A marca abre a lateral no desktop: sem barra superior, e daqui
+                que o produto se identifica. */}
+            <div className="hidden px-4 pt-5 pb-4 lg:block">
+              <Marca assinaturaEmDuasLinhas />
+            </div>
+            <div className="mx-4 hidden h-0.5 bg-ciano lg:block" aria-hidden />
+
+            <ul className="space-y-1 p-3">
             {GRUPOS.map((grupo) => (
               <li key={grupo}>
                 <p className="px-3 pt-3 pb-1 text-[0.6875rem] font-bold tracking-[0.16em] text-sobre-azul/50 uppercase">
@@ -130,32 +145,46 @@ export default function App() {
                   )}
                 </ul>
               </li>
-            ))}
-          </ul>
+              ))}
+            </ul>
+          </div>
         </nav>
 
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-0">
-          {superficieDoParticipante && (
-            <div className="mb-6 w-full sm:max-w-[26rem]">
-              <Campo
-                id="handle"
-                rotulo="Identificação no canal"
-                ajuda={
-                  handle
-                    ? 'Contato conhecido: o FAROL responde sobre o caso desta pessoa.'
-                    : 'Anônimo: apenas informação pública, nenhum dado pessoal.'
-                }
-              >
-                <input
+        <main
+          className={[
+            // Folga maior embaixo que em cima: sem rodape, o ultimo cartao
+            // encostava na borda da janela e a pagina parecia cortada.
+            'min-w-0 flex-1 px-4 pt-6 pb-16 sm:px-6',
+            // Fundo levemente tingido nas telas de trabalho: cartao branco
+            // sobre pagina branca nao separa nada, e a tela inteira vira uma
+            // folha continua onde nada tem comeco nem fim.
+            palco ? 'zap-palco flex flex-col items-center gap-5' : 'bg-superficie-alt',
+          ].join(' ')}
+        >
+          {superficieDoParticipante &&
+            (palco ? (
+              <IdentificacaoNoPalco handle={handle} aoMudar={setHandle} />
+            ) : (
+              <div className="mb-6 w-full sm:max-w-[26rem]">
+                <Campo
                   id="handle"
-                  value={handle}
-                  onChange={(e) => setHandle(e.target.value)}
-                  placeholder="Deixe vazio para conversar como anônimo"
-                  className={`${ESTILO_ENTRADA} mt-1`}
-                />
-              </Campo>
-            </div>
-          )}
+                  rotulo="Identificação no canal"
+                  ajuda={
+                    handle
+                      ? 'Contato conhecido: o FAROL responde sobre o caso desta pessoa.'
+                      : 'Anônimo: apenas informação pública, nenhum dado pessoal.'
+                  }
+                >
+                  <input
+                    id="handle"
+                    value={handle}
+                    onChange={(e) => setHandle(e.target.value)}
+                    placeholder="Deixe vazio para conversar como anônimo"
+                    className={`${ESTILO_ENTRADA} mt-1`}
+                  />
+                </Campo>
+              </div>
+            ))}
 
           {superficie === 'whatsapp' && (
             <EspelhoWhatsApp key={handle} handle={handle} />
@@ -176,19 +205,44 @@ export default function App() {
           )}
         </main>
       </div>
+    </div>
+  )
+}
 
-      {/* Rodapé — terceira e última área marinho. */}
-      <footer className="mt-10 bg-marinho">
-        <div className="h-0.5 bg-ciano" aria-hidden />
-        <div className="mx-auto max-w-[90rem] px-4 py-8 sm:px-6">
-          <Marca />
-          <p className="mt-4 max-w-2xl text-sm text-sobre-azul/80 italic">{SLOGAN}</p>
-          <p className="mt-4 text-xs text-sobre-azul/60">
-            Seção de Coordenação de Educação a Distância · {ASSINATURA} · Dados
-            fictícios, conforme a regra do desafio.
-          </p>
-        </div>
-      </footer>
+/**
+ * Identificação do contato sobre o palco escuro.
+ *
+ * O componente `Campo` padrao tem rotulo azul-marinho sobre fundo claro:
+ * jogado no palco ele vira um cartao branco brigando com a cena. Aqui os
+ * mesmos tres elementos usam a paleta do palco.
+ */
+function IdentificacaoNoPalco({
+  handle,
+  aoMudar,
+}: {
+  handle: string
+  aoMudar: (v: string) => void
+}) {
+  return (
+    <div className="w-full sm:max-w-[26rem]">
+      <label
+        htmlFor="handle"
+        className="text-[0.6875rem] font-semibold tracking-[0.16em] text-zap-palco-suave uppercase"
+      >
+        Identificação no canal
+      </label>
+      <input
+        id="handle"
+        value={handle}
+        onChange={(e) => aoMudar(e.target.value)}
+        placeholder="Deixe vazio para conversar como anônimo"
+        className="mt-1.5 w-full rounded-full border border-zap-palco-borda bg-zap-palco-campo px-4 py-2 text-sm text-zap-palco-texto placeholder:text-zap-palco-suave/70"
+      />
+      <p className="mt-1.5 text-xs text-zap-palco-suave">
+        {handle
+          ? 'Contato conhecido: o FAROL responde sobre o caso desta pessoa.'
+          : 'Anônimo: apenas informação pública, nenhum dado pessoal.'}
+      </p>
     </div>
   )
 }

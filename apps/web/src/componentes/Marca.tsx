@@ -9,9 +9,19 @@ type Props = {
   /** `sobre-escuro` para a barra marinho; `sobre-claro` para o conteúdo. */
   tom?: 'sobre-escuro' | 'sobre-claro'
   tamanho?: 'normal' | 'grande'
+  /**
+   * Deixa a assinatura quebrar em duas linhas em vez de cortar.
+   * Na barra lateral não há largura para ela em uma linha só, e um
+   * "Transformando a…" reticente é pior que duas linhas inteiras.
+   */
+  assinaturaEmDuasLinhas?: boolean
 }
 
-export default function Marca({ tom = 'sobre-escuro', tamanho = 'normal' }: Props) {
+export default function Marca({
+  tom = 'sobre-escuro',
+  tamanho = 'normal',
+  assinaturaEmDuasLinhas = false,
+}: Props) {
   const claro = tom === 'sobre-escuro'
   const grande = tamanho === 'grande'
 
@@ -40,7 +50,8 @@ export default function Marca({ tom = 'sobre-escuro', tamanho = 'normal' }: Prop
         </span>
         <span
           className={[
-            'block truncate text-xs italic',
+            'block text-xs italic',
+            assinaturaEmDuasLinhas ? 'leading-snug' : 'truncate',
             claro ? 'text-sobre-azul/80' : 'text-texto-suave',
           ].join(' ')}
         >
