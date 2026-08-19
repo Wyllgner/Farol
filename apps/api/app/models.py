@@ -72,7 +72,7 @@ class Participante(Base, TimestampMixin):
         EnumTexto(NivelIdentidade, 24), default=NivelIdentidade.ANONIMO, nullable=False
     )
 
-    # Secao 4.3 — Orcamento de Atencao. Saldo de interrupcoes ainda disponivel.
+    # Secao 4.3: Orcamento de Atencao. Saldo de interrupcoes ainda disponivel.
     saldo_atencao: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
     aceita_avisos: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -112,7 +112,7 @@ class Matricula(Base, TimestampMixin):
         EnumTexto(SituacaoCertificado, 24), default=SituacaoCertificado.NAO_ELEGIVEL
     )
     # Onde a pessoa esta no grafo da jornada (secao 4.1). Compartilhado
-    # entre o Andar 1 e o Andar 3 — e o que elimina duplicacao conceitual.
+    # entre o Andar 1 e o Andar 3, e o que elimina duplicacao conceitual.
     aresta_atual_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("aresta_jornada.id", ondelete="SET NULL")
     )
@@ -136,7 +136,7 @@ class DocumentoConhecimento(Base, TimestampMixin):
     titulo: Mapped[str] = mapped_column(String(300), nullable=False)
     conteudo: Mapped[str] = mapped_column(Text, nullable=False)
     dono: Mapped[str] = mapped_column(String(200), nullable=False)
-    # Secao 7.2 — sem fonte valida e vigente, o FAROL escala.
+    # Secao 7.2, sem fonte valida e vigente, o FAROL escala.
     valido_ate: Mapped[date | None] = mapped_column(Date)
     situacao: Mapped[SituacaoDocumento] = mapped_column(
         EnumTexto(SituacaoDocumento, 24), default=SituacaoDocumento.VIGENTE, nullable=False
@@ -204,6 +204,18 @@ class Mensagem(Base, TimestampMixin):
     # Respostas rapidas oferecidas junto da mensagem (secao 12.2: uma acao por mensagem).
     acoes_rapidas: Mapped[list] = mapped_column(JSON, default=list)
 
+    # Entrega diferida. Nulo significa "na fila": a mensagem existe, mas
+    # ainda nao chegou a pessoa. Enviar e entregar sao coisas diferentes, e
+    # confundi-las era o que fazia o FAROL medir o efeito de mensagens que
+    # ninguem tinha visto.
+    entregue_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Preenchido quando a mensagem nasce de um gatilho. E por este vinculo
+    # que a entrega sabe qual hipotese comecar a contar.
+    evento_proativo_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("evento_proativo.id", ondelete="SET NULL")
+    )
+
     conversa: Mapped[Conversa] = relationship(back_populates="mensagens")
 
 
@@ -250,7 +262,7 @@ class Caso(Base, TimestampMixin):
     resposta_enviada: Mapped[str | None] = mapped_column(Text)
     fontes_usadas: Mapped[list | None] = mapped_column(JSON)
 
-    # Secao 5.5 — o laco. Um caso so fecha com confirmacao da pessoa.
+    # Secao 5.5: o laco. Um caso so fecha com confirmacao da pessoa.
     contrato_resolucao: Mapped[ContratoResolucao] = mapped_column(
         EnumTexto(ContratoResolucao, 24), default=ContratoResolucao.ABERTO, nullable=False
     )
@@ -258,14 +270,14 @@ class Caso(Base, TimestampMixin):
     # A informacao mais valiosa que existe quando a pessoa diz "nao resolveu".
     orientacao_padrao_falhou: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Secao 5.7 — a fila e ordenada por consequencia, nao por chegada.
+    # Secao 5.7: a fila e ordenada por consequencia, nao por chegada.
     score_consequencia: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
-    # Secao 5.9 — deduplicacao entre canais aponta para o caso original.
+    # Secao 5.9: deduplicacao entre canais aponta para o caso original.
     duplicado_de_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("caso.id", ondelete="SET NULL")
     )
 
-    # Secao 7.1 — Modo Ensaio. O caso foi gerado em modo sombra: a resposta
+    # Secao 7.1: Modo Ensaio. O caso foi gerado em modo sombra: a resposta
     # existe, mas nao foi enviada; um servidor precisa aprovar ou corrigir.
     em_ensaio: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # None enquanto nao revisado; True se o servidor aprovou o que o FAROL
@@ -279,7 +291,7 @@ class Caso(Base, TimestampMixin):
 
 
 # --------------------------------------------------------------------------
-# Andar 1 — antecipacao
+# Andar 1: antecipacao
 # --------------------------------------------------------------------------
 
 
@@ -294,7 +306,7 @@ class EventoProativo(Base, TimestampMixin):
     enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     valor_esperado: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
 
-    # Secao 4.4 — toda mensagem proativa gera uma hipotese verificavel.
+    # Secao 4.4: toda mensagem proativa gera uma hipotese verificavel.
     hipotese: Mapped[str] = mapped_column(Text, nullable=False)
     verificar_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     efeito: Mapped[EfeitoAntecipacao] = mapped_column(
@@ -315,7 +327,7 @@ class ArestaJornada(Base, TimestampMixin):
 
 
 # --------------------------------------------------------------------------
-# Andar 3 — extincao de causa
+# Andar 3: extincao de causa
 # --------------------------------------------------------------------------
 
 
@@ -332,7 +344,7 @@ class AgrupamentoCausa(Base, TimestampMixin):
 
 
 class OrdemCorrecao(Base, TimestampMixin):
-    """Secao 6.2 — nao e sugestao em painel, e experimento com metodo."""
+    """Secao 6.2, nao e sugestao em painel, e experimento com metodo."""
 
     __tablename__ = "ordem_correcao"
 
@@ -352,7 +364,7 @@ class OrdemCorrecao(Base, TimestampMixin):
     )
     impacto_estimado: Mapped[int] = mapped_column(Integer, default=0)
     # Volume observado quando a ordem foi emitida. Sem esta linha de base
-    # nao ha como dizer se o volume caiu — so se ele esta alto ou baixo.
+    # nao ha como dizer se o volume caiu: so se ele esta alto ou baixo.
     volume_base_mensal: Mapped[int] = mapped_column(Integer, default=0)
     implementada_em: Mapped[date | None] = mapped_column(Date)
     # Quando a previsao falha, a hipotese e descartada e o motivo fica
@@ -366,7 +378,7 @@ class OrdemCorrecao(Base, TimestampMixin):
 
 
 class LogAuditoria(Base, TimestampMixin):
-    """Secao 7.5 — append-only. Requisito nao negociavel em ambiente judiciario.
+    """Secao 7.5: append-only. Requisito nao negociavel em ambiente judiciario.
 
     A imutabilidade nao e garantida so por convencao: a migration revoga
     UPDATE e DELETE nesta tabela para a role da aplicacao.
@@ -385,7 +397,7 @@ class LiberacaoCategoria(Base, TimestampMixin):
 
     Nenhuma instituicao do Judiciario liga no dia 1 um sistema que fala em
     nome da Casa. A liberacao e granular e so acontece depois de uma taxa
-    de acerto observada — nao pedimos confianca, pedimos observacao.
+    de acerto observada, nao pedimos confianca, pedimos observacao.
     """
 
     __tablename__ = "liberacao_categoria"

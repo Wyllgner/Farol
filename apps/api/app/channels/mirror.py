@@ -1,4 +1,4 @@
-"""Espelho do WhatsApp — adaptador de canal sobre WebSocket.
+"""Espelho do WhatsApp: adaptador de canal sobre WebSocket.
 
 Entrega ao navegador em vez da Cloud API, mas aceita e produz payloads no
 MESMO formato de webhook que a API oficial usa. Trocar em producao e
@@ -19,19 +19,47 @@ logger = logging.getLogger(__name__)
 
 
 class GerenciadorConexoes:
-    """Conexoes abertas por handle. Uma pessoa, uma sessao de espelho."""
+    """Conexoes de espelho abertas, agrupadas por handle.
+
+    Uma pessoa pode ter o espelho aberto mais de uma vez: duas abas, um
+    recarregamento em que a conexao antiga ainda nao morreu, ou o modo de
+    desenvolvimento do React, que monta o componente duas vezes de
+    proposito. Guardar uma unica conexao por handle parecia suficiente e
+    nao era: bastava a conexao antiga se registrar DEPOIS da nova (a
+    ordem de chegada do handshake nao e garantida) para a resposta ser
+    entregue num socket ja morto, e a pessoa ficar olhando o "digitando"
+    para sempre.
+
+    Entao aqui cada handle tem uma lista, e a entrega vai para todas as
+    conexoes vivas. A que morreu sai da lista sozinha, na primeira falha
+    de envio.
+    """
 
     def __init__(self) -> None:
-        self._conexoes: dict[str, object] = {}
+        self._conexoes: dict[str, list] = {}
 
     def registrar(self, handle: str, websocket) -> None:
-        self._conexoes[handle] = websocket
+        self._conexoes.setdefault(handle, []).append(websocket)
 
-    def remover(self, handle: str) -> None:
-        self._conexoes.pop(handle, None)
+    def remover(self, handle: str, websocket=None) -> None:
+        """Tira do ar a conexao que caiu, e so ela.
 
-    def obter(self, handle: str):
-        return self._conexoes.get(handle)
+        Sem o argumento, limpa o handle inteiro. Com ele, remove apenas
+        aquele socket: uma sessao que termina nao pode levar junto a
+        conexao viva de outra aba.
+        """
+        if websocket is None:
+            self._conexoes.pop(handle, None)
+            return
+
+        restantes = [c for c in self._conexoes.get(handle, []) if c is not websocket]
+        if restantes:
+            self._conexoes[handle] = restantes
+        else:
+            self._conexoes.pop(handle, None)
+
+    def obter(self, handle: str) -> list:
+        return list(self._conexoes.get(handle, []))
 
     def conectados(self) -> list[str]:
         return list(self._conexoes)
@@ -91,23 +119,35 @@ class MirrorWhatsAppAdapter:
         }
 
     async def send(self, to: str, msg: OutboundMessage) -> DeliveryReceipt:
-        websocket = conexoes.obter(to)
-        if websocket is None:
+        abertas = conexoes.obter(to)
+        if not abertas:
             # Em producao seria falha de entrega; aqui significa que a
             # aba do espelho foi fechada. Nos dois casos o motor ja
             # persistiu a mensagem, entao nada se perde.
             logger.info("sem espelho conectado para %s", to)
             return DeliveryReceipt(entregue=False, detalhe="sem conexao aberta")
 
-        await websocket.send_json(
-            {
-                "tipo": "mensagem",
-                "direcao": "saida",
-                "texto": msg.texto,
-                "acoes_rapidas": msg.acoes_rapidas,
-                "fontes": msg.fontes,
-            }
-        )
+        payload = {
+            "tipo": "mensagem",
+            "direcao": "saida",
+            "texto": msg.texto,
+            "acoes_rapidas": msg.acoes_rapidas,
+            "fontes": msg.fontes,
+        }
+
+        entregues = 0
+        for websocket in abertas:
+            try:
+                await websocket.send_json(payload)
+                entregues += 1
+            except Exception:  # noqa: BLE001 - o socket morre de varias formas
+                # Socket morto que ainda constava na lista. Sai daqui em
+                # vez de derrubar a entrega para as outras abas.
+                logger.info("conexao morta descartada para %s", to)
+                conexoes.remover(to, websocket)
+
+        if not entregues:
+            return DeliveryReceipt(entregue=False, detalhe="nenhuma conexao respondeu")
         return DeliveryReceipt(entregue=True)
 
 

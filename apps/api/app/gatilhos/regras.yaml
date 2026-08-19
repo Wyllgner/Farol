@@ -8,7 +8,7 @@
 #   que esta mensagem tenta evitar. Alimenta o valor esperado com que o
 #   orcamento de atencao decide o que enviar.
 # probabilidade_evitar: estimativa inicial de que a mensagem evite o
-#   atendimento. E so o ponto de partida — a verificacao de efeito
+#   atendimento. E so o ponto de partida: a verificacao de efeito
 #   substitui esse numero pela taxa medida assim que houver amostra.
 
 gatilhos:
@@ -43,7 +43,7 @@ gatilhos:
     probabilidade_evitar: 0.40
     mensagem: |
       Oi, {primeiro_nome}. Falta configurar a autenticacao em dois fatores
-      em *{curso}* — sem ela o acesso pode ser bloqueado no proximo login.
+      em *{curso}*, sem ela o acesso pode ser bloqueado no proximo login.
 
       Sao cinco passos rapidos e eu posso te acompanhar em cada um.
     acoes:

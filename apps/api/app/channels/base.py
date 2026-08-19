@@ -5,7 +5,7 @@ canal: adicionar um canal nao duplica logica, e trocar a implementacao do
 WhatsApp por a API oficial nao toca uma linha do motor.
 
 Os payloads seguem o formato de webhook da Cloud API de proposito. A
-camada de espelho nao e um atalho — e a arquitetura correta com
+camada de espelho nao e um atalho, e a arquitetura correta com
 implementacao trocavel, e o formato e a parte que prova isso.
 """
 
@@ -21,7 +21,7 @@ class InboundMessage:
     # Identificador do interlocutor no canal: telefone, e-mail, sessao.
     handle: str
     texto: str
-    # Contexto extra que o canal conhece e o motor pode usar — o widget
+    # Contexto extra que o canal conhece e o motor pode usar: o widget
     # do AVA sabe em que pagina a pessoa esta.
     contexto: dict = field(default_factory=dict)
 

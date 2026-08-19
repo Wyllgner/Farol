@@ -1,11 +1,11 @@
-"""Andar 1 — ANTECIPAR (secao 4).
+"""Andar 1: ANTECIPAR (secao 4).
 
 Percorre as matriculas, avalia os gatilhos ativos, deixa o orcamento de
 atencao decidir o que merece a interrupcao, envia e registra a hipotese
 que sera verificada depois.
 
 A ordem importa: avaliamos todos os candidatos de uma pessoa ANTES de
-gastar saldo, para que o saldo va para a mensagem de maior valor — e nao
+gastar saldo, para que o saldo va para a mensagem de maior valor, e nao
 para a primeira que passou no filtro.
 """
 
@@ -20,7 +20,7 @@ from app.channels.base import OutboundMessage
 from app.channels.mirror import adaptador
 from app.enums import Canal, Direcao
 from app.models import Matricula, Participante
-from app.services import atencao, auditoria, gatilhos
+from app.services import atencao, auditoria, entrega, gatilhos
 from app.services.conversa import obter_ou_criar, registrar_mensagem
 from app.services.gatilhos import Gatilho
 
@@ -100,36 +100,57 @@ def _candidatas(
 async def _enviar(
     db: Session, participante: Participante, candidata: Candidata, agora: datetime
 ) -> None:
+    """Coloca a mensagem na fila do canal da pessoa.
+
+    Nao debita o orcamento de atencao nem inicia a hipotese: as duas
+    coisas dependem de a mensagem ter CHEGADO, e isso quem sabe e a
+    entrega (`services.entrega`). Interromper so custa quando de fato
+    interrompe, e so vale medir o que a pessoa viu.
+    """
     texto = gatilhos.montar_mensagem(candidata.gatilho, candidata.matricula, agora)
     canal = participante.canal_preferido or Canal.WHATSAPP
+    # O identificador tem que ser o MESMO que o canal usa para reconhecer
+    # a pessoa (`identidade.resolver`), senao a mensagem proativa vai para
+    # uma conversa paralela que o widget nunca vai abrir. So o canal de
+    # e-mail e enderecado por e-mail.
     handle = (
-        participante.telefone if canal is Canal.WHATSAPP else participante.email
+        participante.email if canal is Canal.EMAIL else participante.telefone
     ) or ""
 
     conversa = obter_ou_criar(db, canal, handle)
-    registrar_mensagem(db, conversa, Direcao.SAIDA, texto, candidata.gatilho.acoes)
 
-    atencao.debitar(db, participante)
+    # A hipotese nasce sem relogio: `verificar_em` fica nulo ate a entrega,
+    # e a verificacao ignora o que ainda nao comecou a contar.
     evento = atencao.registrar_hipotese(
-        db, participante, candidata.gatilho, candidata.valor, agora
+        db, participante, candidata.gatilho, candidata.valor
     )
+    mensagem = registrar_mensagem(
+        db, conversa, Direcao.SAIDA, texto, candidata.gatilho.acoes, entregue=False
+    )
+    mensagem.evento_proativo_id = evento.id
+    db.flush()
 
     auditoria.registrar(
         db,
         "mensagem_proativa",
         {
             "gatilho": candidata.gatilho.chave,
+            "canal": str(canal),
             "valor_esperado": candidata.valor,
             "hipotese": evento.hipotese,
-            "verificar_em": evento.verificar_em.isoformat(),
         },
     )
 
+    # Tentativa de entrega imediata. O espelho entrega agora se a aba
+    # estiver aberta; o widget do AVA entrega quando a pessoa abrir. Nos
+    # dois casos, quem confirma a entrega inicia a hipotese.
     if canal is Canal.WHATSAPP:
-        await adaptador.send(
+        recibo = await adaptador.send(
             handle,
             OutboundMessage(texto=texto, acoes_rapidas=candidata.gatilho.acoes),
         )
+        if recibo.entregue:
+            entrega.confirmar(db, [mensagem], agora)
 
 
 def painel(db: Session) -> list[dict]:

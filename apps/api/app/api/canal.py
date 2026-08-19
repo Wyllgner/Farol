@@ -15,6 +15,7 @@ from app.channels.base import InboundMessage
 from app.channels.mirror import adaptador, conexoes
 from app.db import SessionLocal, get_db
 from app.enums import Canal
+from app.services import entrega
 from app.services.conversa import processar
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,24 @@ async def espelho(websocket: WebSocket, handle: str) -> None:
     await websocket.accept()
     conexoes.registrar(handle, websocket)
     logger.info("espelho conectado: %s", handle)
+
+    # A mensagem proativa pode ter sido montada com a aba fechada. Ela
+    # espera na fila e chega quando a pessoa abre o WhatsApp, que e o que
+    # acontece no aparelho de verdade. So agora ela conta como entregue.
+    with SessionLocal() as db:
+        fila_inicial = entrega.pendentes(db, Canal.WHATSAPP, handle)
+        for mensagem in fila_inicial:
+            await websocket.send_json(
+                {
+                    "tipo": "mensagem",
+                    "direcao": "saida",
+                    "texto": mensagem.conteudo,
+                    "acoes_rapidas": mensagem.acoes_rapidas,
+                    "fontes": [],
+                }
+            )
+        entrega.confirmar(db, fila_inicial)
+        db.commit()
 
     try:
         while True:
@@ -71,7 +90,7 @@ async def espelho(websocket: WebSocket, handle: str) -> None:
     except WebSocketDisconnect:
         logger.info("espelho desconectado: %s", handle)
     finally:
-        conexoes.remover(handle)
+        conexoes.remover(handle, websocket)
 
 
 class MensagemWidget(BaseModel):
@@ -102,6 +121,30 @@ async def widget(
     return RespostaWidget(
         texto=saida.texto, acoes_rapidas=saida.acoes_rapidas, fontes=saida.fontes
     )
+
+
+class MensagemPendente(BaseModel):
+    texto: str
+    acoes_rapidas: list[str]
+
+
+@router.get("/widget/pendentes", response_model=list[MensagemPendente])
+def pendentes_do_widget(
+    handle: str = "", db: Session = Depends(get_db)
+) -> list[MensagemPendente]:
+    """Mensagens proativas que esperavam a pessoa abrir o AVA.
+
+    O widget nao tem conexao permanente: ele pergunta ao carregar. Este
+    e o momento da entrega no canal do AVA, e e daqui que a hipotese
+    daquela mensagem passa a contar o prazo.
+    """
+    fila = entrega.pendentes(db, Canal.WIDGET_AVA, handle)
+    resposta = [
+        MensagemPendente(texto=m.conteudo, acoes_rapidas=m.acoes_rapidas) for m in fila
+    ]
+    entrega.confirmar(db, fila)
+    db.commit()
+    return resposta
 
 
 @router.post("/webhook/whatsapp")

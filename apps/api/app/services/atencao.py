@@ -6,12 +6,12 @@ limitado de interrupcoes, e o saldo so e gasto nas mensagens de maior
 valor esperado.
 
 E toda mensagem proativa gera uma hipotese verificavel. Gatilho que nao
-funciona e desativado automaticamente — o banner falhou porque ninguem
+funciona e desativado automaticamente: o banner falhou porque ninguem
 mediu o efeito dele.
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -37,7 +37,7 @@ class Efetividade:
     def taxa(self) -> float | None:
         """Antecipacao efetiva: atendimentos comprovadamente evitados.
 
-        None enquanto nao ha amostra — nao inventamos numero para
+        None enquanto nao ha amostra, nao inventamos numero para
         preencher painel.
         """
         if self.amostra == 0:
@@ -139,20 +139,22 @@ def registrar_hipotese(
     participante: Participante,
     gatilho: Gatilho,
     valor: float,
-    agora: datetime,
 ) -> EventoProativo:
-    """Toda mensagem proativa nasce com uma hipotese verificavel."""
+    """Toda mensagem proativa nasce com uma hipotese verificavel.
+
+    Ela nasce SEM relogio: `enviado_em` e `verificar_em` ficam nulos ate a
+    entrega. Uma hipotese sobre uma mensagem que ninguem viu nao pode ser
+    verificada, e muito menos confirmada.
+    """
     regras = carregar()
     evento = EventoProativo(
         gatilho=gatilho.chave,
         participante_id=participante.id,
-        enviado_em=agora,
         valor_esperado=valor,
         hipotese=(
             f"Esta pessoa nao abrira atendimento sobre {gatilho.categoria} "
             f"nos proximos {regras.janela_dias} dias."
         ),
-        verificar_em=agora + timedelta(days=regras.janela_dias),
         efeito=EfeitoAntecipacao.PENDENTE,
     )
     db.add(evento)
@@ -226,6 +228,10 @@ def efetividade(db: Session, chave: str) -> Efetividade:
         db.execute(
             select(EventoProativo.efeito, func.count(EventoProativo.id))
             .where(EventoProativo.gatilho == chave)
+            # So entra na conta o que chegou a alguem. Mensagem na fila
+            # nao mede nada: creditar efeito a ela seria dizer que o
+            # gatilho evitou um atendimento sem ter falado com ninguem.
+            .where(EventoProativo.enviado_em.is_not(None))
             .group_by(EventoProativo.efeito)
         ).all()
     )

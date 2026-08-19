@@ -1,4 +1,4 @@
-"""Testes do Andar 1 — antecipacao, orcamento e verificacao de efeito.
+"""Testes do Andar 1: antecipacao, orcamento e verificacao de efeito.
 
 O que precisa ficar provado: a mensagem proativa nasce com hipotese, a
 hipotese e conferida no prazo, e o gatilho que nao funciona sai do ar
@@ -20,7 +20,7 @@ from app.enums import (
     SituacaoCertificado,
 )
 from app.models import Caso, EventoProativo, Matricula, Participante
-from app.services import antecipacao, atencao, gatilhos
+from app.services import antecipacao, atencao, entrega, gatilhos
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def regras():
 def disponivel(db) -> Participante:
     """Participante que aceita avisos e tem saldo.
 
-    O seed inclui gente que ja optou por nao receber — pegar "o primeiro"
+    O seed inclui gente que ja optou por nao receber: pegar "o primeiro"
     tornaria o teste dependente da ordem do banco.
     """
     participante = db.scalars(
@@ -64,6 +64,19 @@ def _matricula_de(db, **filtros) -> Matricula:
 # --------------------------------------------------------------------------
 # Regras declarativas
 # --------------------------------------------------------------------------
+
+def _hipotese_entregue(db, participante, gatilho, agora):
+    """Hipotese de uma mensagem que CHEGOU a pessoa.
+
+    Registrar a hipotese e entregar a mensagem viraram dois momentos
+    distintos: so o segundo comeca o relogio da verificacao. Os testes que
+    medem efetividade falam de mensagens vistas, entao passam pelos dois.
+    """
+    evento = atencao.registrar_hipotese(db, participante, gatilho, 5.0)
+    entrega.iniciar_hipotese(db, evento, agora)
+    return evento
+
+
 
 
 def test_regras_vem_do_yaml_com_os_cinco_gatilhos(regras):
@@ -191,7 +204,7 @@ def test_valor_baixo_nao_gasta_orcamento(db, regras, disponivel):
 def test_mesmo_gatilho_nao_dispara_duas_vezes(db, regras, disponivel):
     participante = disponivel
     gatilho = regras.por_chave("sem_2fa")
-    atencao.registrar_hipotese(db, participante, gatilho, 5.0, datetime.now(UTC))
+    _hipotese_entregue(db, participante, gatilho, datetime.now(UTC))
 
     pode, motivo = atencao.pode_interromper(db, participante, gatilho, 5.0)
     assert not pode
@@ -202,8 +215,8 @@ def test_quem_ignora_recebe_menos(db, regras, disponivel):
     """Quem ignora sistematicamente recebe menos; quem interage, mais."""
     participante = disponivel
     for chave in ("nunca_acessou", "prazo_apertado", "certificado_parado"):
-        evento = atencao.registrar_hipotese(
-            db, participante, regras.por_chave(chave), 5.0, datetime.now(UTC)
+        evento = _hipotese_entregue(
+            db, participante, regras.por_chave(chave), datetime.now(UTC)
         )
         evento.efeito = EfeitoAntecipacao.REFUTADO
     db.flush()
@@ -222,7 +235,7 @@ def test_eh_optout_reconhece_a_palavra():
 
 
 # --------------------------------------------------------------------------
-# Verificacao de efeito — o laco do Andar 1
+# Verificacao de efeito: o laco do Andar 1
 # --------------------------------------------------------------------------
 
 
@@ -231,8 +244,8 @@ def _hipotese(db, regras, chave="prazo_apertado", dias_atras=8) -> EventoProativ
         select(Participante).order_by(Participante.email)
     ).first()
     enviado = datetime.now(UTC) - timedelta(days=dias_atras)
-    evento = atencao.registrar_hipotese(
-        db, participante, regras.por_chave(chave), 5.0, enviado
+    evento = _hipotese_entregue(
+        db, participante, regras.por_chave(chave), enviado
     )
     return evento
 
@@ -322,8 +335,8 @@ def _muitas_hipoteses(db, regras, chave, confirmadas, refutadas):
     assert len(participantes) >= total, "seed pequeno demais para o teste"
 
     for indice in range(total):
-        evento = atencao.registrar_hipotese(
-            db, participantes[indice], regras.por_chave(chave), 5.0, datetime.now(UTC)
+        evento = _hipotese_entregue(
+            db, participantes[indice], regras.por_chave(chave), datetime.now(UTC)
         )
         evento.efeito = (
             EfeitoAntecipacao.CONFIRMADO
@@ -368,3 +381,55 @@ def test_painel_nao_inventa_taxa_sem_amostra(db):
     ]
     for linha in sem_amostra:
         assert linha["antecipacao_efetiva"] is None
+
+
+# --------------------------------------------------------------------------
+# Entrega diferida: enviar nao e chegar
+# --------------------------------------------------------------------------
+
+
+def test_mensagem_na_fila_nao_conta_como_antecipacao(db, regras, disponivel):
+    """O erro que isto trava: creditar efeito a quem nao viu nada.
+
+    Enquanto a mensagem espera na fila, ela nao tem relogio, nao entra na
+    medicao e nao pode ser confirmada. Confirmar seria dizer que o gatilho
+    evitou um atendimento sem nunca ter falado com a pessoa.
+    """
+    gatilho = regras.por_chave("sem_2fa")
+    antes = atencao.efetividade(db, gatilho.chave)
+    evento = atencao.registrar_hipotese(db, disponivel, gatilho, 5.0)
+
+    assert evento.enviado_em is None
+    assert evento.verificar_em is None
+
+    # A medicao nao se mexe: enfileirar nao e medir.
+    depois = atencao.efetividade(db, gatilho.chave)
+    assert depois.amostra == antes.amostra
+    assert depois.pendentes == antes.pendentes, "fila nao e amostra"
+
+
+def test_entrega_inicia_o_relogio_e_debita_a_atencao(db, regras, disponivel):
+    gatilho = regras.por_chave("sem_2fa")
+    saldo_antes = disponivel.saldo_atencao
+    pendentes_antes = atencao.efetividade(db, gatilho.chave).pendentes
+    evento = atencao.registrar_hipotese(db, disponivel, gatilho, 5.0)
+
+    agora = datetime.now(UTC)
+    entrega.iniciar_hipotese(db, evento, agora)
+
+    assert evento.enviado_em == agora
+    assert evento.verificar_em == agora + timedelta(days=regras.janela_dias)
+    # Interromper so custa quando de fato interrompe.
+    assert disponivel.saldo_atencao == saldo_antes - 1
+    assert atencao.efetividade(db, gatilho.chave).pendentes == pendentes_antes + 1
+
+
+def test_hipotese_sem_relogio_nao_vence(db, regras, disponivel):
+    """A verificacao ignora o que ainda nao comecou a contar."""
+    evento = atencao.registrar_hipotese(db, disponivel, regras.por_chave("sem_2fa"), 5.0)
+
+    # Prazo absurdo de proposito: nem assim a hipotese sem relogio vence.
+    atencao.verificar_hipoteses(db, datetime.now(UTC) + timedelta(days=365))
+
+    assert evento.efeito is EfeitoAntecipacao.PENDENTE
+    assert evento.verificar_em is None
