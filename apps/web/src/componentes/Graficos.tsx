@@ -523,3 +523,78 @@ export function BarraEmpilhada({
     </div>
   )
 }
+
+// --------------------------------------------------------------------------
+// Barras horizontais
+// --------------------------------------------------------------------------
+
+/**
+ * Ranking por magnitude: barra horizontal, ordenada, rótulo à esquerda.
+ *
+ * É a forma certa quando os rótulos são frases — em barras verticais eles
+ * viram texto girado ou reticências, e o gráfico deixa de ser legível
+ * justamente na parte que diz do que ele trata.
+ *
+ * Uma única hue: isto é magnitude de uma mesma grandeza, não identidade.
+ * Cor por item aqui só acrescentaria um código que ninguém pediu para
+ * decorar. O item destacado recebe intensidade, não outra hue.
+ */
+export function BarrasHorizontais({
+  itens,
+  sufixo = '',
+}: {
+  itens: { rotulo: string; valor: number; destacado?: boolean; nota?: string }[]
+  sufixo?: string
+}) {
+  const maximo = Math.max(1, ...itens.map((i) => i.valor))
+  const [pronto, setPronto] = useState(false)
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setPronto(true))
+    return () => cancelAnimationFrame(t)
+  }, [])
+
+  return (
+    <ul className="space-y-2.5">
+      {itens.map((item, i) => (
+        <li key={`${item.rotulo}-${i}`}>
+          <div className="flex items-baseline justify-between gap-3">
+            <p
+              className={[
+                'min-w-0 truncate text-sm',
+                item.destacado ? 'font-semibold text-texto' : 'text-texto',
+              ].join(' ')}
+              title={item.rotulo}
+            >
+              {item.rotulo}
+            </p>
+            <span className="shrink-0 text-sm font-bold tabular-nums text-texto">
+              {item.valor}
+              {sufixo}
+            </span>
+          </div>
+          <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-superficie-alt">
+            <div
+              className="h-full rounded-full transition-[width] duration-700 ease-out"
+              style={{
+                width: pronto ? `${(item.valor / maximo) * 100}%` : '0%',
+                // O nao destacado precisa continuar legivel: azul-100 puro
+                // some contra a superficie e a barra vira uma linha branca.
+                background: item.destacado
+                  ? 'var(--serie-1)'
+                  : 'color-mix(in oklab, var(--serie-1) 32%, white)',
+                // O destacado ganha contorno, não outra cor: quem lê em
+                // preto e branco continua distinguindo qual é.
+                boxShadow: item.destacado
+                  ? 'inset 0 0 0 1px color-mix(in oklab, var(--serie-1) 70%, black)'
+                  : 'none',
+              }}
+            />
+          </div>
+          {item.nota && (
+            <p className="mt-1 text-xs text-texto-suave">{item.nota}</p>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}

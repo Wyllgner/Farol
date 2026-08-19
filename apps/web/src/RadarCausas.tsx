@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  Botao,
-  CabecalhoConteudo,
-  Etiqueta,
-  TituloSecao,
-  Vazio,
-} from './componentes/Ui'
+import { BarrasComparadas, BarrasHorizontais } from './componentes/Graficos'
+import { Botao, CabecalhoConteudo, TituloSecao, Vazio } from './componentes/Ui'
 
 type Ordem = {
   id: string
@@ -20,6 +15,7 @@ type Ordem = {
   situacao: string
   conclusao: string | null
   cursos_afetados: string[]
+  agrupamento_id: string | null
 }
 
 type Agrupamento = {
@@ -76,6 +72,7 @@ export default function RadarCausas() {
   }
 
   const destaque = radar?.ordem_em_destaque ?? null
+  const medidas = historico.filter((o) => o.resultado_medido !== null)
 
   return (
     <div className="space-y-6">
@@ -110,35 +107,65 @@ export default function RadarCausas() {
           </div>
 
           <div className="p-6">
-            <dl className="space-y-4">
-              <Bloco rotulo="Hipótese" texto={destaque.hipotese} />
-              <Bloco rotulo="Evidência" texto={destaque.evidencia} />
-              <Bloco rotulo="Ação" texto={destaque.acao} destaque />
+            {/* A ação vem primeiro e sozinha: é a única coisa desta tela que
+                alguém precisa DECIDIR. Hipótese e evidência sustentam a
+                decisão, e por isso vêm depois dela, não antes. */}
+            <p className="text-xs font-bold tracking-wider text-texto-suave uppercase">
+              O que fazer
+            </p>
+            <p className="mt-2 text-xl leading-snug font-semibold text-texto">
+              {destaque.acao}
+            </p>
 
-              <div>
-                <dt className="text-xs font-bold tracking-wider text-texto-suave uppercase">
-                  Previsão
-                </dt>
-                <dd className="mt-1 flex flex-wrap items-baseline gap-2">
-                  <span className="text-4xl font-bold text-teal">
-                    −{destaque.previsao_queda_mensal}
+            {/* A previsão, do tamanho da aposta que ela é. */}
+            <div className="mt-5 grid gap-5 rounded-[--radius-card] bg-superficie-alt p-5 sm:grid-cols-[auto_1fr] sm:items-center">
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl leading-none font-bold text-teal">
+                  −{destaque.previsao_queda_mensal}
+                </span>
+                <span className="text-sm leading-tight text-texto-suave">
+                  atendimentos
+                  <br />
+                  por mês
+                </span>
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-baseline justify-between gap-3 text-xs text-texto-suave">
+                  <span>previsão de queda</span>
+                  <span>
+                    <strong className="text-texto">
+                      {Math.round(
+                        (destaque.previsao_queda_mensal /
+                          Math.max(1, destaque.volume_base_mensal)) *
+                          100,
+                      )}
+                      %
+                    </strong>{' '}
+                    da base de {destaque.volume_base_mensal}/mês
                   </span>
-                  <span className="text-texto">
-                    atendimentos/mês, sobre uma base de{' '}
-                    {destaque.volume_base_mensal}.
-                  </span>
-                </dd>
-                <dd className="mt-2 h-2 overflow-hidden rounded-full bg-superficie-alt">
-                  {/* Barra de progresso: acento ciano. */}
+                </div>
+                {/* A barra mostra a fatia do volume que a correção promete
+                    levar. Sem a base ao lado, "−14" não diz se é muito. */}
+                <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-superficie">
                   <div
-                    className="h-full rounded-full bg-ciano"
+                    className="h-full rounded-full bg-teal transition-[width] duration-700 ease-out"
                     style={{
                       width: `${Math.min(100, (destaque.previsao_queda_mensal / Math.max(1, destaque.volume_base_mensal)) * 100)}%`,
                     }}
                     aria-hidden
                   />
-                </dd>
+                </div>
+                <p className="mt-1.5 text-xs text-texto-suave">
+                  Medição automática em 30 dias. Se não cair, a hipótese é
+                  descartada.
+                </p>
               </div>
+            </div>
+
+            <dl className="mt-5 space-y-4 border-t border-borda pt-5">
+              <Bloco rotulo="Hipótese" texto={destaque.hipotese} />
+              <Bloco rotulo="Evidência" texto={destaque.evidencia} />
 
               {destaque.cursos_afetados.length > 0 && (
                 <Bloco
@@ -184,62 +211,102 @@ export default function RadarCausas() {
         </Vazio>
       )}
 
-      {/* Listas ficam abaixo, secundárias. */}
-      <section>
-        <TituloSecao nivel={3}>Agrupamentos encontrados</TituloSecao>
-        <ul className="mt-3 space-y-2">
-          {radar?.agrupamentos.length === 0 && (
-            <li className="text-sm text-texto-suave">
-              Nenhum agrupamento ainda: são necessários ao menos 3 casos
-              semelhantes.
-            </li>
-          )}
-          {radar?.agrupamentos.map((g) => (
-            <li
-              key={g.id}
-              className="flex items-start justify-between gap-4 rounded-[--radius-card] border border-borda bg-superficie p-3"
-            >
-              <div className="min-w-0">
-                <p className="text-texto">{g.rotulo}</p>
-                <p className="mt-1 flex flex-wrap gap-1.5">
-                  <Etiqueta tom="proativo">
-                    {g.aresta ?? 'aresta não identificada'}
-                  </Etiqueta>
-                  {g.cursos_afetados[0] && <Etiqueta>{g.cursos_afetados[0]}</Etiqueta>}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-teal px-2.5 py-0.5 text-xs font-semibold text-sobre-azul">
-                {g.volume}
-              </span>
-            </li>
-          ))}
-        </ul>
+      {/* Onde o volume está. Barra em vez de lista de cartões: dezesseis
+          cartões iguais escondem a única informação que a seção carrega,
+          que é qual causa é grande e qual é ruído. */}
+      <section className="rounded-[--radius-card] border border-borda bg-superficie p-6">
+        <TituloSecao nivel={3}>Onde a demanda se concentra</TituloSecao>
+        <p className="mt-2 max-w-3xl text-sm text-texto-suave">
+          Agrupamentos por similaridade semântica, não por categoria escolhida
+          a dedo. É daqui que sai a próxima ordem de correção.
+        </p>
+
+        {radar && radar.agrupamentos.length > 0 ? (
+          <div className="mt-5">
+            <BarrasHorizontais
+              itens={radar.agrupamentos.slice(0, 8).map((g) => ({
+                rotulo: g.rotulo,
+                valor: g.volume,
+                // O agrupamento que originou a ordem em destaque aparece
+                // marcado: é o elo entre esta seção e a decisão de cima.
+                destacado: g.id === destaque?.agrupamento_id,
+                nota: [g.aresta, g.cursos_afetados[0]]
+                  .filter(Boolean)
+                  .join(' · '),
+              }))}
+              sufixo=" casos"
+            />
+            {radar.agrupamentos.length > 8 && (
+              <p className="mt-4 text-xs text-texto-suave">
+                + {radar.agrupamentos.length - 8} agrupamentos menores, abaixo
+                do limiar de ação.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-texto-suave">
+            Nenhum agrupamento ainda: são necessários ao menos 3 casos
+            semelhantes.
+          </p>
+        )}
       </section>
 
-      <section>
-        <TituloSecao nivel={3}>Histórico de previsões</TituloSecao>
-        <p className="mt-2 text-sm text-texto-suave">
-          {radar?.acerto_das_previsoes.medidas
-            ? `${radar.acerto_das_previsoes.causas_extintas ?? 0} causas extintas · ${radar.acerto_das_previsoes.hipoteses_descartadas ?? 0} hipóteses descartadas`
-            : 'Nenhuma previsão medida ainda.'}
-        </p>
-        <ul className="mt-3 space-y-2">
-          {historico
-            .filter((o) => o.resultado_medido !== null)
-            .map((o) => (
-              <li
-                key={o.id}
-                className="rounded-[--radius-card] border border-borda bg-superficie p-3 text-sm"
-              >
-                <p className="text-texto">{o.hipotese}</p>
-                <p
-                  className={`mt-1 ${o.situacao === 'confirmada' ? 'text-sucesso' : 'text-alerta'}`}
-                >
-                  {o.conclusao}
+      {/* O histórico é o que dá credibilidade ao andar inteiro: sem ele, a
+          previsão de cima é palpite com aparência de número. */}
+      <section className="rounded-[--radius-card] border border-borda bg-superficie p-6">
+        <TituloSecao nivel={3}>Previsão contra medição</TituloSecao>
+
+        {medidas.length > 0 ? (
+          <>
+            <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
+              <div>
+                <p className="text-4xl leading-none font-bold text-azul-titulo">
+                  {Math.round((radar?.acerto_das_previsoes.acerto ?? 0) * 100)}%
                 </p>
-              </li>
-            ))}
-        </ul>
+                <p className="mt-1 text-xs text-texto-suave">
+                  das previsões acertaram
+                </p>
+              </div>
+              <div className="flex gap-6">
+                <div>
+                  <p className="text-2xl leading-none font-bold text-sucesso">
+                    {radar?.acerto_das_previsoes.causas_extintas ?? 0}
+                  </p>
+                  <p className="mt-1 text-xs text-texto-suave">causas extintas</p>
+                </div>
+                <div>
+                  <p className="text-2xl leading-none font-bold text-alerta">
+                    {radar?.acerto_das_previsoes.hipoteses_descartadas ?? 0}
+                  </p>
+                  <p className="mt-1 text-xs text-texto-suave">
+                    hipóteses descartadas
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-4 max-w-3xl text-sm text-texto-suave">
+              A hipótese que erra fica publicada. Uma taxa de acerto que nunca
+              mostra erro não está medindo nada.
+            </p>
+
+            <div className="mt-5">
+              <BarrasComparadas
+                itens={medidas.map((o) => ({
+                  rotulo: o.acao,
+                  previsto: o.previsao_queda_mensal,
+                  medido: o.resultado_medido ?? 0,
+                  acertou: o.situacao === 'confirmada',
+                }))}
+              />
+            </div>
+          </>
+        ) : (
+          <p className="mt-3 text-sm text-texto-suave">
+            Nenhuma previsão medida ainda. A primeira medição acontece 30 dias
+            depois de uma ordem ser marcada como implementada.
+          </p>
+        )}
       </section>
     </div>
   )

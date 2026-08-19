@@ -28,6 +28,10 @@ def _serializar_ordem(o: OrdemCorrecao, db: Session) -> dict:
         "situacao": str(o.situacao),
         "conclusao": o.conclusao,
         "cursos_afetados": grupo.cursos_afetados if grupo else [],
+        # A tela marca, na lista de agrupamentos, qual deles originou esta
+        # ordem. Sem o id ela teria de adivinhar por semelhanca de texto,
+        # que e exatamente o tipo de ligacao que erra em silencio.
+        "agrupamento_id": str(o.agrupamento_id) if o.agrupamento_id else None,
     }
 
 
