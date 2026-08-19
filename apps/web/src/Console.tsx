@@ -54,7 +54,7 @@ const ROTEIRO = [
   {
     passo: 'Acompanhar',
     acao: 'Peça ajuda com 2FA e responda “Não consegui” duas vezes',
-    porque: 'orientar não é acompanhar — e ele sabe a hora de parar',
+    porque: 'orientar não é acompanhar, e ele sabe a hora de parar',
   },
   {
     passo: 'Verificar se resolveu',
@@ -191,7 +191,7 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
           </Botao>
         </div>
         <p className="mt-3 text-xs text-texto-suave">
-          Avançar o tempo também executa os laços que vencerem no caminho —
+          Avançar o tempo também executa os laços que vencerem no caminho: 
           deixar o relógio andar sem verificar produziria um estado que nunca
           existiria de verdade.
         </p>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Botao,
   CabecalhoConteudo,
@@ -35,6 +35,60 @@ type Metricas = {
 
 const SERVIDOR = 'Servidora Ana (SECOEAD)'
 
+/**
+ * O que o servidor precisa ler primeiro é a PERGUNTA, não o resumo que o
+ * sistema gerou sobre ela.
+ *
+ * O resumo é escrito para a fila ("Fulano: prazo, sem fonte suficiente
+ * para responder") e repete a categoria que já está na etiqueta ao lado.
+ * Com vinte casos na tela, vinte resumos parecidos viram uma parede
+ * cinza: nada distingue um caso do outro, e é preciso abrir todos para
+ * saber qual é urgente. A pergunta literal distingue na primeira linha.
+ */
+function perguntaDe(caso: Caso): string {
+  const pergunta = (caso.dossie?.pergunta as string | undefined)?.trim()
+  return pergunta || caso.resumo
+}
+
+function nomeDe(caso: Caso): string {
+  const estado = caso.dossie?.estado_do_participante as
+    | { primeiro_nome?: string }
+    | undefined
+  return estado?.primeiro_nome || 'Anônimo'
+}
+
+/**
+ * Urgência do caso, na ordem em que a Política de Triagem a define.
+ *
+ * A fila é ordenada pela consequência de não atender, mas um número solto
+ * ("3.0") não diz nada a quem lê. A faixa colorida e o rótulo dizem: são a
+ * mesma informação, legível de relance.
+ */
+type Urgencia = { chave: 'critico' | 'alto' | 'normal'; rotulo: string; barra: string }
+
+function urgenciaDe(caso: Caso): Urgencia {
+  if (caso.sensivel || caso.orientacao_padrao_falhou) {
+    return { chave: 'critico', rotulo: 'Crítico', barra: 'bg-erro' }
+  }
+  if (caso.score_consequencia >= 2.5) {
+    return { chave: 'alto', rotulo: 'Alta consequência', barra: 'bg-alerta' }
+  }
+  return { chave: 'normal', rotulo: 'Normal', barra: 'bg-azul' }
+}
+
+/** 0.6798 não é linguagem de quem atende. 68% é. */
+function porcentagem(valor: unknown): string | null {
+  const numero = Number(valor)
+  return Number.isFinite(numero) ? `${Math.round(numero * 100)}%` : null
+}
+
+function espera(minutos: number): string {
+  if (minutos < 60) return `${minutos} min`
+  const horas = Math.floor(minutos / 60)
+  if (horas < 24) return `${horas} h`
+  return `${Math.floor(horas / 24)} d`
+}
+
 export default function FilaServidor() {
   const [casos, setCasos] = useState<Caso[]>([])
   const [metricas, setMetricas] = useState<Metricas | null>(null)
@@ -59,10 +113,23 @@ export default function FilaServidor() {
     carregar()
   }, [carregar])
 
+  // Abrir já no primeiro caso: a tela existe para trabalhar a fila, e
+  // recebê-la com metade vazia obriga a um clique que não decide nada.
+  useEffect(() => {
+    if (selecionado === null && casos.length > 0) setSelecionado(casos[0].id)
+  }, [casos, selecionado])
+
   const caso = casos.find((c) => c.id === selecionado) ?? null
 
+  // Dois grupos, não vinte cartões iguais: o que precisa de gente agora e
+  // o resto. É a mesma ordenação do backend, só que dita em voz alta.
+  const { urgentes, demais } = useMemo(() => {
+    const urgentes = casos.filter((c) => urgenciaDe(c).chave !== 'normal')
+    return { urgentes, demais: casos.filter((c) => !urgentes.includes(c)) }
+  }, [casos])
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <CabecalhoConteudo
         chapeu="Equipe · SECOEAD"
         titulo="Fila do Servidor"
@@ -74,80 +141,174 @@ export default function FilaServidor() {
         }
       />
 
-      {metricas && (
-        <dl className="grid gap-3 sm:grid-cols-4">
-          <Indicador rotulo="Na fila" valor={metricas.na_fila} destaque />
-          <Indicador
-            rotulo="Orientação falhou"
-            valor={metricas.com_orientacao_padrao_falha}
+      {metricas && <Placar metricas={metricas} />}
+
+      <div className="grid items-start gap-5 xl:grid-cols-[23rem_1fr]">
+        {/* A lista rola dentro da propria coluna. Sem isso as duas colunas
+            disputam a mesma barra de rolagem: para ver o caso 12 o
+            servidor tinha de empurrar o dossie inteiro para fora da tela. */}
+        <section
+          aria-label="Casos"
+          className="space-y-5 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto xl:pr-1"
+        >
+          {erro && <p className="text-sm text-erro">{erro}</p>}
+
+          {casos.length === 0 && !erro && (
+            <Vazio>Nada na fila. Sucesso, aqui, é este número ser baixo.</Vazio>
+          )}
+
+          <Grupo
+            titulo="Precisam de você agora"
+            casos={urgentes}
+            selecionado={selecionado}
+            aoSelecionar={setSelecionado}
           />
-          <Indicador rotulo="Sensíveis" valor={metricas.sensiveis} />
-          <Indicador rotulo="Encerrados" valor={metricas.encerrados} />
-        </dl>
-      )}
-
-      <div className="grid gap-6 xl:grid-cols-[24rem_1fr]">
-        <section aria-label="Casos">
-          <TituloSecao nivel={3}>Casos abertos</TituloSecao>
-
-          {erro && <p className="mt-3 text-sm text-erro">{erro}</p>}
-
-          <ul className="mt-3 space-y-2">
-            {casos.length === 0 && !erro && (
-              <li>
-                <Vazio>
-                  Nada na fila. Sucesso, aqui, é este número ser baixo.
-                </Vazio>
-              </li>
-            )}
-
-            {casos.map((c) => (
-              <li key={c.id}>
-                <button
-                  onClick={() => setSelecionado(c.id)}
-                  aria-current={c.id === selecionado ? 'true' : undefined}
-                  className={[
-                    'w-full rounded-[--radius-card] border p-4 text-left transition-colors',
-                    c.id === selecionado
-                      ? 'border-azul bg-azul-100'
-                      : 'border-borda bg-superficie hover:bg-superficie-alt',
-                  ].join(' ')}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-bold tracking-wider text-azul-titulo uppercase">
-                      {c.categoria}
-                    </span>
-                    <span className="shrink-0 rounded-full bg-azul px-2 py-0.5 text-xs font-semibold text-sobre-azul">
-                      {c.score_consequencia.toFixed(1)}
-                    </span>
-                  </div>
-
-                  <p className="mt-1.5 text-sm text-texto">{c.resumo}</p>
-
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    <Etiqueta>{c.canal}</Etiqueta>
-                    <Etiqueta>{c.minutos_esperando} min</Etiqueta>
-                    {c.sensivel && <Etiqueta tom="alerta">sensível</Etiqueta>}
-                    {c.orientacao_padrao_falhou && (
-                      <Etiqueta tom="alerta">orientação falhou</Etiqueta>
-                    )}
-                    {c.assumido_por && (
-                      <Etiqueta tom="azul">{c.assumido_por}</Etiqueta>
-                    )}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <Grupo
+            titulo="Demais casos"
+            casos={demais}
+            selecionado={selecionado}
+            aoSelecionar={setSelecionado}
+          />
         </section>
 
         {caso ? (
-          <DetalheCaso caso={caso} aoMudar={carregar} />
+          <div className="xl:sticky xl:top-[5.5rem]">
+            <DetalheCaso caso={caso} aoMudar={carregar} />
+          </div>
         ) : (
-          <Vazio>Selecione um caso para ver o dossiê completo.</Vazio>
+          <Cartao>
+            <p className="py-16 text-center text-sm text-texto-suave">
+              Escolha um caso à esquerda para abrir o dossiê.
+            </p>
+          </Cartao>
         )}
       </div>
     </div>
+  )
+}
+
+/** Placar em faixa. Quatro caixotes com três zeros ocupavam a tela toda. */
+function Placar({ metricas }: { metricas: Metricas }) {
+  const itens: { rotulo: string; valor: number; alerta?: boolean }[] = [
+    { rotulo: 'Na fila', valor: metricas.na_fila },
+    {
+      rotulo: 'Orientação falhou',
+      valor: metricas.com_orientacao_padrao_falha,
+      alerta: metricas.com_orientacao_padrao_falha > 0,
+    },
+    { rotulo: 'Sensíveis', valor: metricas.sensiveis, alerta: metricas.sensiveis > 0 },
+    { rotulo: 'Encerrados', valor: metricas.encerrados },
+  ]
+
+  return (
+    <dl className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-[--radius-card] border border-borda bg-superficie px-5 py-3">
+      {itens.map(({ rotulo, valor, alerta }) => (
+        <div key={rotulo} className="flex items-baseline gap-2">
+          <dd
+            className={[
+              'text-2xl font-bold tabular-nums',
+              alerta ? 'text-alerta' : 'text-azul-titulo',
+            ].join(' ')}
+          >
+            {valor}
+          </dd>
+          <dt className="text-sm text-texto-suave">{rotulo}</dt>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function Grupo({
+  titulo,
+  casos,
+  selecionado,
+  aoSelecionar,
+}: {
+  titulo: string
+  casos: Caso[]
+  selecionado: string | null
+  aoSelecionar: (id: string) => void
+}) {
+  if (casos.length === 0) return null
+
+  return (
+    <div>
+      <div className="flex items-center gap-3">
+        <TituloSecao nivel={3}>{titulo}</TituloSecao>
+        <span className="shrink-0 text-sm font-semibold text-texto-suave tabular-nums">
+          {casos.length}
+        </span>
+      </div>
+
+      <ul className="mt-3 space-y-2">
+        {casos.map((c) => (
+          <li key={c.id}>
+            <CartaoDeCaso
+              caso={c}
+              ativo={c.id === selecionado}
+              aoSelecionar={() => aoSelecionar(c.id)}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function CartaoDeCaso({
+  caso,
+  ativo,
+  aoSelecionar,
+}: {
+  caso: Caso
+  ativo: boolean
+  aoSelecionar: () => void
+}) {
+  const urgencia = urgenciaDe(caso)
+
+  return (
+    <button
+      onClick={aoSelecionar}
+      aria-current={ativo ? 'true' : undefined}
+      className={[
+        'flex w-full gap-0 overflow-hidden rounded-[--radius-controle] border bg-superficie text-left transition-colors',
+        ativo
+          ? 'border-azul ring-1 ring-azul'
+          : 'border-borda hover:border-azul/40 hover:shadow-sm',
+      ].join(' ')}
+    >
+      {/* Faixa de urgência: cor é o que se lê antes de qualquer palavra. */}
+      <span
+        className={`w-1.5 shrink-0 self-stretch ${urgencia.barra}`}
+        aria-hidden
+      />
+
+      <span className="min-w-0 flex-1 px-3.5 py-3">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-sm font-semibold text-texto">
+            {nomeDe(caso)}
+          </span>
+          <span className="shrink-0 text-xs text-texto-suave tabular-nums">
+            {espera(caso.minutos_esperando)}
+          </span>
+        </span>
+
+        {/* A pergunta da pessoa, que é o que distingue um caso do outro. */}
+        <span className="mt-1 line-clamp-2 block text-sm leading-snug text-texto-suave">
+          {perguntaDe(caso)}
+        </span>
+
+        <span className="mt-2 flex flex-wrap items-center gap-1">
+          <Etiqueta>{caso.categoria}</Etiqueta>
+          {caso.sensivel && <Etiqueta tom="alerta">sensível</Etiqueta>}
+          {caso.orientacao_padrao_falhou && (
+            <Etiqueta tom="alerta">orientação falhou</Etiqueta>
+          )}
+          {caso.assumido_por && <Etiqueta tom="azul">assumido</Etiqueta>}
+        </span>
+      </span>
+    </button>
   )
 }
 
@@ -183,14 +344,22 @@ function DetalheCaso({ caso, aoMudar }: { caso: Caso; aoMudar: () => void }) {
 
   const dossie = caso.dossie ?? {}
   const encerrado = caso.situacao === 'encerrado'
+  const urgencia = urgenciaDe(caso)
 
   return (
     <Cartao>
-      {/* Crítico no topo: o dossiê tem de ser lido em 10 segundos. */}
-      <p className="text-xs font-bold tracking-[0.16em] text-texto-suave uppercase">
-        {caso.categoria} · {caso.canal}
-      </p>
-      <h2 className="mt-1 text-xl font-bold">{caso.resumo}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold tracking-[0.16em] text-texto-suave uppercase">
+            {nomeDe(caso)} · {caso.categoria} · {caso.canal}
+          </p>
+          {/* A pergunta é o título: é sobre ela que a pessoa espera resposta. */}
+          <h2 className="mt-1 text-xl font-bold text-texto">{perguntaDe(caso)}</h2>
+        </div>
+        <Etiqueta tom={urgencia.chave === 'normal' ? undefined : 'alerta'}>
+          {urgencia.rotulo}
+        </Etiqueta>
+      </div>
       <div className="mt-3 h-0.5 w-20 bg-ciano" aria-hidden />
 
       {caso.orientacao_padrao_falhou && (
@@ -200,28 +369,21 @@ function DetalheCaso({ caso, aoMudar }: { caso: Caso; aoMudar: () => void }) {
         </p>
       )}
 
-      <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+      <dl className="mt-5 grid gap-x-8 gap-y-4 rounded-[--radius-controle] bg-superficie-alt p-4 sm:grid-cols-2">
         <Campo rotulo="Motivo do encaminhamento" valor={dossie.motivo_do_escalonamento} />
         <Campo rotulo="Nível de identidade" valor={dossie.nivel_identidade} />
-        <Campo rotulo="Confiança" valor={String(dossie.confianca ?? '—')} />
-        <Campo rotulo="Espera" valor={`${caso.minutos_esperando} min`} />
+        <Campo rotulo="Confiança" valor={porcentagem(dossie.confianca)} />
+        <Campo rotulo="Espera" valor={espera(caso.minutos_esperando)} />
       </dl>
 
-      <details className="mt-4 rounded-[--radius-controle] border border-borda p-3">
-        <summary className="cursor-pointer text-sm font-semibold text-azul-titulo">
-          Dossiê completo
-        </summary>
-        <pre className="mt-3 max-h-80 overflow-auto rounded bg-superficie-alt p-3 text-xs">
-          {JSON.stringify(caso.dossie, null, 2)}
-        </pre>
-      </details>
+      <Dossie dossie={dossie} />
 
       <div className="mt-6">
         <label htmlFor="resposta" className="text-sm font-semibold text-azul-titulo">
           Resposta ao participante
         </label>
         <p className="mb-1 text-xs text-texto-suave">
-          Rascunho sugerido. Edite à vontade — nada sai sem sua revisão.
+          Rascunho sugerido. Edite à vontade: nada sai sem sua revisão.
         </p>
         <textarea
           id="resposta"
@@ -300,33 +462,210 @@ function DetalheCaso({ caso, aoMudar }: { caso: Caso; aoMudar: () => void }) {
   )
 }
 
-function Indicador({
-  rotulo,
-  valor,
-  destaque,
-}: {
-  rotulo: string
-  valor: number
-  destaque?: boolean
-}) {
+function Campo({ rotulo, valor }: { rotulo: string; valor: unknown }) {
+  const vazio = valor === null || valor === undefined || valor === ''
   return (
-    <div
-      className={[
-        'rounded-[--radius-card] border p-4',
-        destaque ? 'border-azul bg-azul-100' : 'border-borda bg-superficie',
-      ].join(' ')}
-    >
-      <dt className="text-xs text-texto-suave">{rotulo}</dt>
-      <dd className="text-3xl font-bold text-azul-titulo">{valor}</dd>
+    <div className="min-w-0">
+      <dt className="text-[0.6875rem] font-semibold tracking-[0.12em] text-texto-suave uppercase">
+        {rotulo}
+      </dt>
+      <dd
+        className={[
+          'mt-1 text-sm',
+          vazio ? 'text-texto-suave' : 'font-medium text-texto',
+        ].join(' ')}
+      >
+        {vazio ? '—' : String(valor)}
+      </dd>
     </div>
   )
 }
 
-function Campo({ rotulo, valor }: { rotulo: string; valor: unknown }) {
+
+// --------------------------------------------------------------------------
+// Dossiê
+// --------------------------------------------------------------------------
+
+type CursoDoEstado = {
+  curso: string
+  progresso_pct: number
+  nunca_acessou: boolean
+  dias_desde_ultimo_acesso: number | null
+  dois_fatores_configurado: boolean
+  dias_ate_o_prazo: number | null
+  situacao_certificado: string
+}
+
+type EstadoDoParticipante = {
+  primeiro_nome?: string
+  perfil?: string
+  cursos?: CursoDoEstado[]
+}
+
+type FonteConsultada = { documento: string; dono: string; score: number }
+
+const CERTIFICADO_EM_PORTUGUES: Record<string, string> = {
+  nao_elegivel: 'certificado ainda não liberado',
+  liberado: 'certificado liberado para emissão',
+  emitido: 'certificado já emitido',
+}
+
+/**
+ * O dossiê como texto, e não como JSON.
+ *
+ * Quem abre esta tela é um servidor da SECOEAD decidindo o que responder a
+ * uma pessoa, não alguém depurando o sistema. Um bloco de JSON obriga a
+ * traduzir `dois_fatores_configurado: false` mentalmente antes de pensar
+ * no caso, e some com a informação importante no meio de chaves e
+ * vírgulas. Os mesmos dados, escritos em português, cabem em dez segundos
+ * de leitura, que é o tempo que o dossiê tem para valer a pena.
+ *
+ * Os dados brutos continuam ali embaixo: o compromisso de auditabilidade é
+ * mostrar tudo, não é mostrar feio.
+ */
+function Dossie({ dossie }: { dossie: Record<string, unknown> }) {
+  const estado = dossie.estado_do_participante as EstadoDoParticipante | undefined
+  const fontes = (dossie.fontes_consultadas as FonteConsultada[] | undefined) ?? []
+  const ancoragem = dossie.ancoragem as
+    | { intacta: boolean; motivo: string }
+    | undefined
+  const naoCompreendida = dossie.resposta_que_nao_foi_compreendida as
+    | string
+    | undefined
+
   return (
-    <>
-      <dt className="text-texto-suave">{rotulo}</dt>
-      <dd className="text-texto">{String(valor ?? '—')}</dd>
-    </>
+    <section className="mt-5 rounded-[--radius-card] border border-borda">
+      <div className="border-b border-borda bg-superficie-alt px-4 py-2.5">
+        <TituloSecao nivel={3}>Dossiê</TituloSecao>
+      </div>
+      <div className="divide-y divide-borda">
+
+      {estado?.cursos?.length ? (
+        <Bloco
+          titulo={`Situação de ${estado.primeiro_nome ?? 'quem perguntou'}${
+            estado.perfil ? ` · ${estado.perfil}` : ''
+          }`}
+        >
+          <ul className="space-y-3">
+            {estado.cursos.map((curso) => (
+              <li key={curso.curso}>
+                <p className="text-sm font-semibold text-texto">{curso.curso}</p>
+                {/* Um fato por linha, e nao tudo numa frase so: o servidor
+                    procura UM deles, e a leitura corrida obriga a ler todos. */}
+                <ul className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
+                  {fatosDoCurso(curso).map((fato) => (
+                    <li key={fato}>
+                      <Etiqueta>{fato}</Etiqueta>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </Bloco>
+      ) : (
+        <Bloco titulo="Situação do participante">
+          <p className="text-sm text-texto-suave">
+            Pessoa não identificada no canal: o dossiê não tem estado
+            individual.
+          </p>
+        </Bloco>
+      )}
+
+      {naoCompreendida && (
+        <Bloco titulo="Resposta que não foi compreendida">
+          <p className="border-l-2 border-alerta pl-3 text-sm text-texto italic">
+            {naoCompreendida}
+          </p>
+        </Bloco>
+      )}
+
+      {fontes.length > 0 && (
+        <Bloco titulo="Fontes consultadas">
+          <ul className="space-y-1.5 text-sm">
+            {fontes.map((fonte) => (
+              <li
+                key={fonte.documento}
+                className="flex items-baseline justify-between gap-3"
+              >
+                <span className="min-w-0">
+                  <span className="text-texto">{fonte.documento}</span>{' '}
+                  <span className="text-xs text-texto-suave">{fonte.dono}</span>
+                </span>
+                <span className="shrink-0 text-xs text-texto-suave tabular-nums">
+                  {porcentagem(fonte.score)} de aderência
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Bloco>
+      )}
+
+      {ancoragem && (
+        <Bloco titulo="Verificação de ancoragem">
+          <p className="flex flex-wrap items-center gap-2 text-sm">
+            <Etiqueta tom={ancoragem.intacta ? 'sucesso' : 'alerta'}>
+              {ancoragem.intacta ? 'íntegra' : 'bloqueada'}
+            </Etiqueta>
+            <span className="text-texto-suave">{ancoragem.motivo}</span>
+          </p>
+        </Bloco>
+      )}
+
+      {/* Auditabilidade nao negociavel: o registro cru continua a um clique. */}
+      <details className="px-4 py-3">
+        <summary className="cursor-pointer text-xs font-semibold text-azul-titulo">
+          Ver registro completo
+        </summary>
+        <pre className="mt-3 max-h-80 overflow-auto rounded bg-superficie-alt p-3 text-xs">
+          {JSON.stringify(dossie, null, 2)}
+        </pre>
+      </details>
+      </div>
+    </section>
+  )
+}
+
+/** Traduz o estado da matrícula para frases que um servidor lê direto. */
+function fatosDoCurso(curso: CursoDoEstado): string[] {
+  const fatos = [`progresso ${Math.round(curso.progresso_pct)}%`]
+
+  fatos.push(
+    curso.nunca_acessou
+      ? 'nunca acessou'
+      : curso.dias_desde_ultimo_acesso === null
+        ? 'já acessou'
+        : `último acesso há ${curso.dias_desde_ultimo_acesso} dias`,
+  )
+
+  fatos.push(
+    curso.dois_fatores_configurado ? '2FA configurado' : '2FA não configurado',
+  )
+
+  if (curso.dias_ate_o_prazo !== null) {
+    fatos.push(
+      curso.dias_ate_o_prazo < 0
+        ? `prazo vencido há ${Math.abs(curso.dias_ate_o_prazo)} dias`
+        : `faltam ${curso.dias_ate_o_prazo} dias para o prazo`,
+    )
+  }
+
+  fatos.push(
+    CERTIFICADO_EM_PORTUGUES[curso.situacao_certificado] ??
+      'situação do certificado indefinida',
+  )
+
+  return fatos
+}
+
+/** Faixa do dossiê: rótulo pequeno em cima, conteúdo com ar embaixo. */
+function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-3.5">
+      <p className="text-[0.6875rem] font-semibold tracking-[0.12em] text-texto-suave uppercase">
+        {titulo}
+      </p>
+      <div className="mt-2">{children}</div>
+    </div>
   )
 }

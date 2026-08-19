@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { IconeEnviar, IconeFarol, IconeFonte } from './componentes/Icones'
-import { AoVivo } from './componentes/Ui'
+import {
+  IconeBateria,
+  IconeCamera,
+  IconeChamada,
+  IconeClipe,
+  IconeEmoji,
+  IconeEnviar,
+  IconeFarol,
+  IconeMicrofone,
+  IconeSinal,
+  IconeTiques,
+  IconeTresPontos,
+  IconeVideo,
+  IconeVoltar,
+  IconeWifi,
+} from './componentes/Icones'
 import { agora, comNegrito, type Balao, type EventoServidor } from './tipos'
 
 type Props = {
@@ -8,6 +22,20 @@ type Props = {
   handle: string
 }
 
+/**
+ * Espelho do WhatsApp: um celular aberto na conversa com a Escola.
+ *
+ * A moldura não é enfeite. A promessa do produto é chegar no canal que a
+ * pessoa já usa, e uma janela de chat genérica não prova isso a quem
+ * assiste: prova um chat. O que convence é reconhecer a tela antes de ler
+ * qualquer palavra, e é por isso que aqui há barra de status, papel de
+ * parede rabiscado, rabinho de balão e tique azul.
+ *
+ * A interface é reproduzida, não copiada: as cores vivem em tokens
+ * próprios no CSS, os ícones foram redesenhados no traço do projeto e o
+ * papel de parede é um SVG nosso. Imitar o comportamento de um canal não
+ * autoriza redistribuir o material gráfico da Meta.
+ */
 export default function EspelhoWhatsApp({ handle }: Props) {
   const [baloes, setBaloes] = useState<Balao[]>([])
   const [acoes, setAcoes] = useState<string[]>([])
@@ -51,7 +79,7 @@ export default function EspelhoWhatsApp({ handle }: Props) {
 
   useEffect(() => {
     fim.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [baloes, digitando])
+  }, [baloes.length, digitando, acoes.length])
 
   const enviar = useCallback((texto: string) => {
     const conteudo = texto.trim()
@@ -72,111 +100,201 @@ export default function EspelhoWhatsApp({ handle }: Props) {
     socket.current.send(JSON.stringify({ texto: conteudo }))
   }, [])
 
+  const temRascunho = rascunho.trim().length > 0
+
   return (
-    <div className="w-full sm:max-w-[26rem]">
-      {/* No celular a conversa ocupa a tela; no desktop ganha moldura. */}
-      <div className="overflow-hidden bg-superficie sm:rounded-[--radius-card] sm:border sm:border-borda sm:shadow-lg">
-        <header className="bg-azul px-4 py-3 text-sobre-azul">
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sobre-azul/15">
-              <IconeFarol className="h-6 w-6" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate font-bold tracking-wide uppercase">
-                Farol · SECOEAD
-              </p>
-              <AoVivo
-                ativo={conectado}
-                rotulo={
-                  conectado
-                    ? digitando
-                      ? 'digitando…'
-                      : 'on-line'
-                    : 'conectando…'
-                }
-              />
-            </div>
+    <div className="w-full sm:max-w-[24.5rem]">
+      {/* Moldura do aparelho. No celular ela some: quem já está num
+          celular não precisa da imagem de um. */}
+      <div className="zap-aparelho overflow-hidden bg-zap-fundo sm:rounded-[2.75rem] sm:border-[0.55rem] sm:border-zap-moldura">
+        <BarraDeStatus />
+
+        <header className="flex items-center gap-3 bg-zap-barra px-2 py-2 text-white">
+          <button
+            type="button"
+            className="grid h-9 w-7 shrink-0 place-items-center opacity-95"
+            aria-label="Voltar para as conversas"
+          >
+            <IconeVoltar className="h-5 w-5" />
+          </button>
+
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/20">
+            <IconeFarol className="h-6 w-6" />
+          </span>
+
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-[0.975rem] font-medium">
+              Farol · SECOEAD
+            </p>
+            <p className="truncate text-[0.75rem] text-white/85">
+              {conectado ? (digitando ? 'digitando…' : 'online') : 'conectando…'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1 pr-1 text-white/95">
+            <button
+              type="button"
+              className="grid h-9 w-8 place-items-center"
+              aria-label="Chamada de vídeo"
+            >
+              <IconeVideo className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="grid h-9 w-8 place-items-center"
+              aria-label="Chamada de voz"
+            >
+              <IconeChamada className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="grid h-9 w-6 place-items-center"
+              aria-label="Mais opções"
+            >
+              <IconeTresPontos className="h-5 w-5" />
+            </button>
           </div>
         </header>
-        <div className="h-0.5 bg-ciano" aria-hidden />
 
         <div
-          className="h-[60vh] space-y-3 overflow-y-auto bg-superficie-alt px-3 py-4 sm:h-[28rem]"
+          className="zap-papel h-[62vh] space-y-2 overflow-y-auto px-3 py-3 sm:h-[27rem]"
           role="log"
           aria-live="polite"
           aria-label="Conversa com o FAROL"
         >
-          {baloes.length === 0 && (
-            <p className="mx-auto mt-8 max-w-[85%] rounded-[--radius-card] border border-borda bg-superficie px-4 py-3 text-center text-sm text-texto-suave">
-              Mande uma mensagem para a Escola. Pergunte como se estivesse
-              falando com uma pessoa.
-            </p>
-          )}
+          <Etiqueta className="bg-white/95 text-zap-hora">HOJE</Etiqueta>
+          <Etiqueta className="bg-zap-aviso text-zap-aviso-texto">
+            As mensagens são atendidas pela SECOEAD. Dados fictícios de
+            demonstração.
+          </Etiqueta>
 
           {baloes.map((balao) => (
             <BalaoMensagem key={balao.id} balao={balao} />
           ))}
 
           {digitando && (
-            <div className="w-fit rounded-[--radius-card] rounded-tl-sm border border-borda bg-superficie px-4 py-3">
-              <span className="sr-only">O FAROL está digitando</span>
-              <span className="flex gap-1" aria-hidden>
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="h-2 w-2 animate-bounce rounded-full bg-ciano"
-                    style={{ animationDelay: `${i * 0.15}s` }}
-                  />
-                ))}
-              </span>
+            <div className="flex justify-start">
+              <div className="zap-rabo-recebida relative ml-2 rounded-lg rounded-tl-none bg-zap-recebida px-4 py-3 shadow-sm">
+                <span className="sr-only">O FAROL está digitando</span>
+                <span className="flex gap-1" aria-hidden>
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="h-2 w-2 animate-bounce rounded-full bg-zap-hora/60"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </span>
+              </div>
             </div>
           )}
+
+          {/* Botões de resposta rápida: no WhatsApp eles nascem colados no
+              balão que os ofereceu, e não numa barra separada. */}
+          {acoes.length > 0 && !digitando && (
+            <div className="ml-2 max-w-[85%] space-y-px overflow-hidden rounded-b-lg">
+              {acoes.map((acao) => (
+                <button
+                  key={acao}
+                  onClick={() => enviar(acao)}
+                  className="block w-full bg-zap-recebida py-2.5 text-center text-[0.9rem] font-medium text-zap-acao shadow-sm transition-colors hover:bg-zap-composicao"
+                >
+                  {acao}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div ref={fim} />
         </div>
 
-        {acoes.length > 0 && (
-          <div className="flex flex-wrap gap-2 border-t border-borda bg-superficie px-3 py-2">
-            {acoes.map((acao) => (
-              <button
-                key={acao}
-                onClick={() => enviar(acao)}
-                className="rounded-full border border-azul px-4 text-sm font-semibold text-azul-titulo transition-colors hover:bg-azul-100"
-              >
-                {acao}
-              </button>
-            ))}
-          </div>
-        )}
-
         <form
-          className="flex items-center gap-2 border-t border-borda bg-superficie px-3 py-2"
+          className="flex items-end gap-1.5 bg-zap-composicao px-2 py-2"
           onSubmit={(e) => {
             e.preventDefault()
             enviar(rascunho)
           }}
         >
-          <label htmlFor="mensagem" className="sr-only">
-            Escreva sua mensagem
-          </label>
-          <input
-            id="mensagem"
-            value={rascunho}
-            onChange={(e) => setRascunho(e.target.value)}
-            placeholder="Mensagem"
-            autoComplete="off"
-            className="flex-1 rounded-full border border-borda bg-superficie-alt px-4 text-base text-texto placeholder:text-texto-suave"
-          />
+          {/* `min-w-0` e o que deixa a pilula encolher: sem isso o campo
+              empurra o botao de envio para fora da moldura. */}
+          <div className="flex min-w-0 flex-1 items-center gap-1 rounded-[1.6rem] bg-zap-recebida px-2 py-1 shadow-sm">
+            <span className="grid h-8 w-8 shrink-0 place-items-center text-zap-hora">
+              <IconeEmoji className="h-5 w-5" />
+            </span>
+            <label htmlFor="mensagem" className="sr-only">
+              Escreva sua mensagem
+            </label>
+            <input
+              id="mensagem"
+              value={rascunho}
+              onChange={(e) => setRascunho(e.target.value)}
+              placeholder="Mensagem"
+              autoComplete="off"
+              className="min-w-0 flex-1 bg-transparent py-1.5 text-[0.95rem] text-zap-texto outline-none placeholder:text-zap-hora"
+            />
+            <span className="grid h-8 w-8 shrink-0 place-items-center text-zap-hora">
+              <IconeClipe className="h-5 w-5" />
+            </span>
+            {!temRascunho && (
+              <span className="grid h-8 w-8 shrink-0 place-items-center text-zap-hora">
+                <IconeCamera className="h-5 w-5" />
+              </span>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={!rascunho.trim()}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-azul text-sobre-azul transition-colors hover:bg-azul-escuro disabled:opacity-40"
-            aria-label="Enviar mensagem"
+            disabled={!temRascunho}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-zap-envio text-white shadow-sm transition-opacity disabled:opacity-100"
+            aria-label={temRascunho ? 'Enviar mensagem' : 'Gravar áudio'}
           >
-            <IconeEnviar className="h-5 w-5" />
+            {temRascunho ? (
+              <IconeEnviar className="h-5 w-5" />
+            ) : (
+              <IconeMicrofone className="h-5 w-5" />
+            )}
           </button>
         </form>
       </div>
     </div>
+  )
+}
+
+/** Barra de status do aparelho: hora, sinal, wi-fi e bateria. */
+function BarraDeStatus() {
+  const [hora, setHora] = useState(agora)
+
+  useEffect(() => {
+    const id = setInterval(() => setHora(agora()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div className="flex items-center justify-between bg-zap-barra-escura px-6 py-1.5 text-[0.7rem] font-semibold text-white">
+      <span>{hora}</span>
+      <span className="flex items-center gap-1.5">
+        <IconeSinal />
+        <IconeWifi />
+        <IconeBateria />
+      </span>
+    </div>
+  )
+}
+
+/** Pílula central: divisor de data e aviso do sistema. */
+function Etiqueta({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className: string
+}) {
+  return (
+    <p
+      className={`mx-auto w-fit max-w-[90%] rounded-lg px-3 py-1 text-center text-[0.7rem] leading-snug shadow-sm ${className}`}
+    >
+      {children}
+    </p>
   )
 }
 
@@ -186,10 +304,10 @@ function BalaoMensagem({ balao }: { balao: Balao }) {
     <div className={enviada ? 'flex justify-end' : 'flex justify-start'}>
       <div
         className={[
-          'max-w-[85%] rounded-[--radius-card] px-4 py-2.5 text-base',
+          'relative max-w-[85%] rounded-lg px-2.5 pt-1.5 pb-1 text-[0.925rem] leading-snug text-zap-texto shadow-sm',
           enviada
-            ? 'rounded-tr-sm bg-azul-100 text-texto'
-            : 'rounded-tl-sm border border-borda bg-superficie text-texto',
+            ? 'zap-rabo-enviada mr-2 rounded-tr-none bg-zap-enviada'
+            : 'zap-rabo-recebida ml-2 rounded-tl-none bg-zap-recebida',
         ].join(' ')}
       >
         <p
@@ -198,16 +316,20 @@ function BalaoMensagem({ balao }: { balao: Balao }) {
         />
 
         {balao.fontes && balao.fontes.length > 0 && (
-          <p className="mt-2 flex items-start gap-1.5 border-t border-borda pt-2 text-xs text-texto-suave">
-            <IconeFonte className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>{balao.fontes.map((f) => f.documento).join(' · ')}</span>
+          <p className="mt-1.5 border-t border-zap-divisor pt-1 text-[0.7rem] text-zap-hora">
+            {balao.fontes.map((f) => f.documento).join(' · ')}
           </p>
         )}
 
-        <p className="mt-1 text-right text-[0.6875rem] text-texto-suave">
+        {/* A hora corre junto do texto, como no app: ela ocupa o fim da
+            última linha quando cabe, e desce sozinha quando não cabe. */}
+        <span className="float-right mt-0.5 ml-2 flex translate-y-0.5 items-center gap-1 text-[0.6875rem] text-zap-hora">
           {balao.hora}
-          {enviada && <span aria-label=", entregue"> ✓✓</span>}
-        </p>
+          {enviada && (
+            <IconeTiques className="h-3 w-4 text-zap-tique" titulo="Lida" />
+          )}
+        </span>
+        <span className="clear-both block" />
       </div>
     </div>
   )

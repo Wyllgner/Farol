@@ -12,15 +12,67 @@ type Props = {
   handle: string
   /** O widget sabe em que página do AVA a pessoa está. */
   pagina: string
+  /**
+   * Preso à moldura em volta, e não à janela do navegador.
+   *
+   * No AVA de verdade o widget flutua sobre a tela toda. Nas telas de
+   * demonstração ele vive dentro de um print emoldurado, e ancorar na
+   * viewport o faria escapar da moldura e boiar sobre o site do FAROL,
+   * que é justamente a ilusão que estas telas existem para manter.
+   */
+  ancorado?: boolean
+  /** Abre já conversando: em demonstração, ninguém quer clicar antes de ver. */
+  iniciarAberto?: boolean
 }
 
-export default function WidgetAva({ handle, pagina }: Props) {
-  const [aberto, setAberto] = useState(false)
+export default function WidgetAva({
+  handle,
+  pagina,
+  ancorado = false,
+  iniciarAberto = false,
+}: Props) {
+  const [aberto, setAberto] = useState(iniciarAberto)
   const [baloes, setBaloes] = useState<Balao[]>([])
   const [acoes, setAcoes] = useState<string[]>([])
   const [rascunho, setRascunho] = useState('')
   const [carregando, setCarregando] = useState(false)
+  const [naFila, setNaFila] = useState(0)
   const fim = useRef<HTMLDivElement>(null)
+
+  /**
+   * Mensagens proativas que esperavam a pessoa aparecer.
+   *
+   * O widget não tem conexão permanente como o espelho do WhatsApp: ele
+   * pergunta ao carregar. É esse pedido que conta como entrega no canal
+   * do AVA, e é dele que a hipótese do gatilho passa a contar o prazo.
+   */
+  useEffect(() => {
+    let cancelado = false
+
+    fetch(`/api/widget/pendentes?handle=${encodeURIComponent(handle)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((fila: { texto: string; acoes_rapidas: string[] }[]) => {
+        if (cancelado || fila.length === 0) return
+        setBaloes((a) => [
+          ...a,
+          ...fila.map((m) => ({
+            id: crypto.randomUUID(),
+            direcao: 'saida' as const,
+            texto: m.texto,
+            hora: agora(),
+          })),
+        ])
+        setAcoes(fila[fila.length - 1].acoes_rapidas)
+        setNaFila(fila.length)
+      })
+      .catch(() => {
+        /* Sem fila é o caso normal: silêncio é a resposta certa. */
+      })
+
+    return () => {
+      cancelado = true
+    }
+  }, [handle])
 
   useEffect(() => {
     fim.current?.scrollIntoView({ behavior: 'smooth' })
@@ -76,11 +128,29 @@ export default function WidgetAva({ handle, pagina }: Props) {
   if (!aberto) {
     return (
       <button
-        onClick={() => setAberto(true)}
-        className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full bg-azul px-5 text-sobre-azul shadow-lg transition-colors hover:bg-azul-escuro sm:right-6 sm:bottom-6"
+        onClick={() => {
+          setAberto(true)
+          setNaFila(0)
+        }}
+        className={[
+          'z-40 flex items-center gap-2 rounded-full bg-azul px-5 text-sobre-azul shadow-lg transition-colors hover:bg-azul-escuro',
+          ancorado
+            ? 'absolute right-4 bottom-4'
+            : 'fixed right-4 bottom-4 sm:right-6 sm:bottom-6',
+        ].join(' ')}
       >
         <IconeConversa className="h-5 w-5" />
-        <span className="text-sm font-semibold">Precisa de ajuda?</span>
+        <span className="text-sm font-semibold">
+          {naFila > 0 ? 'A Escola te mandou uma mensagem' : 'Precisa de ajuda?'}
+        </span>
+        {naFila > 0 && (
+          <span
+            className="grid h-5 min-w-5 place-items-center rounded-full bg-ciano px-1.5 text-xs font-bold text-marinho"
+            aria-label={`${naFila} mensagem não lida`}
+          >
+            {naFila}
+          </span>
+        )}
       </button>
     )
   }
@@ -88,7 +158,12 @@ export default function WidgetAva({ handle, pagina }: Props) {
   return (
     <section
       /* No celular ocupa a tela inteira; no desktop é uma janela flutuante. */
-      className="fixed inset-0 z-40 flex flex-col bg-superficie sm:inset-auto sm:right-6 sm:bottom-6 sm:h-[34rem] sm:w-[23rem] sm:rounded-[--radius-card] sm:border sm:border-borda sm:shadow-2xl"
+      className={[
+        'z-40 flex flex-col bg-superficie sm:rounded-[--radius-card] sm:border sm:border-borda sm:shadow-2xl',
+        ancorado
+          ? 'absolute inset-x-3 bottom-3 top-3 sm:inset-auto sm:right-4 sm:bottom-4 sm:h-[28rem] sm:w-[21rem]'
+          : 'fixed inset-0 sm:inset-auto sm:right-6 sm:bottom-6 sm:h-[34rem] sm:w-[23rem]',
+      ].join(' ')}
       aria-label="Assistente da Escola"
     >
       <header className="flex items-center justify-between gap-3 bg-azul px-4 py-3 text-sobre-azul sm:rounded-t-[--radius-card]">
