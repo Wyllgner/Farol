@@ -1,7 +1,7 @@
 """Fluxos guiados executaveis (secao 5.4).
 
-Para procedimentos que ja falharam como texto — o 2FA e o caso
-emblematico, com banner e video publicados e o volume intacto — o FAROL
+Para procedimentos que ja falharam como texto: o 2FA e o caso
+emblematico, com banner e video publicados e o volume intacto: o FAROL
 ACOMPANHA em vez de orientar.
 
 Orientar nao e o mesmo que acompanhar. Foi por isso que o video nao
@@ -73,7 +73,7 @@ FLUXO_2FA = Fluxo(
             chave="ativar",
             instrucao=(
                 "Agora clique em *Ativar autenticacao em dois fatores*. Deve "
-                "aparecer uma tela com um QR Code — aquele quadrado preto e "
+                "aparecer uma tela com um QR Code: aquele quadrado preto e "
                 "branco."
             ),
             verificacao="A tela com o QR Code apareceu?",
@@ -86,7 +86,7 @@ FLUXO_2FA = Fluxo(
         Passo(
             chave="aplicativo",
             instrucao=(
-                "No celular, abra um aplicativo autenticador — Google "
+                "No celular, abra um aplicativo autenticador: Google "
                 "Authenticator ou Microsoft Authenticator servem. Toque em "
                 "*adicionar* e escolha *Ler QR Code*. Aponte a camera para a "
                 "tela do computador."
@@ -94,7 +94,7 @@ FLUXO_2FA = Fluxo(
             verificacao="O aplicativo passou a mostrar um codigo de 6 digitos?",
             alternativa=(
                 "Se voce nao tem o aplicativo, baixe *Google Authenticator* na "
-                "loja do seu celular — e gratuito. Se a camera nao le o codigo, "
+                "loja do seu celular, e gratuito. Se a camera nao le o codigo, "
                 "a mesma tela do AVA mostra uma chave em texto logo abaixo do "
                 "QR: escolha *inserir chave manualmente* no aplicativo."
             ),
@@ -118,7 +118,7 @@ FLUXO_2FA = Fluxo(
             chave="recuperacao",
             instrucao=(
                 "Ultimo passo: a tela mostra os *codigos de recuperacao*. "
-                "Salve-os em lugar seguro — eles sao a unica forma de entrar "
+                "Salve-os em lugar seguro: eles sao a unica forma de entrar "
                 "se voce perder o acesso ao celular."
             ),
             verificacao="Conseguiu salvar os codigos?",

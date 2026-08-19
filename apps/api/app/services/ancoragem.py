@@ -1,7 +1,7 @@
 """Verificacao de ancoragem (secao 5.2, etapa 5).
 
 Se a resposta contiver afirmacao nao sustentada pelas fontes, ela e
-BLOQUEADA — nao corrigida, nao suavizada. Bloqueada.
+BLOQUEADA, nao corrigida, nao suavizada. Bloqueada.
 
 A verificacao roda depois da geracao e nao usa modelo: um modelo que
 audita a si mesmo herda os proprios pontos cegos. Aqui a checagem e
@@ -12,6 +12,8 @@ escalar em vez do lado de responder.
 import re
 import unicodedata
 from dataclasses import dataclass, field
+
+from app.llm.base import FONTE_ESTADO
 
 # Numeros, prazos, enderecos e horarios sao o que o sistema nao pode
 # inventar: e o que a pessoa vai executar. Uma frase generica errada
@@ -51,12 +53,27 @@ def _tokens_verificaveis(texto: str) -> set[str]:
     return achados
 
 
-def verificar(resposta: str, trechos: list[dict], fontes_citadas: list[str]) -> Ancoragem:
-    """Confere se a resposta se sustenta nos trechos recuperados."""
+def verificar(
+    resposta: str,
+    trechos: list[dict],
+    fontes_citadas: list[str],
+    estado: str = "",
+) -> Ancoragem:
+    """Confere se a resposta se sustenta nos trechos recuperados.
+
+    `estado` e o resumo do estado individual entregue ao modelo no prompt.
+    Ele tambem e lastro legitimo: veio do banco, nao do modelo. Sem isso, o
+    numero correto do proprio participante ("9% de progresso") seria tratado
+    como invencao e bloquearia a resposta certa.
+    """
     if not resposta.strip():
         return Ancoragem(intacta=False, afirmacoes_sem_fonte=["resposta vazia"])
 
+    # O estado individual so e citavel quando de fato foi entregue ao
+    # modelo: sem o bloco no prompt, citar essa fonte seria invencao.
     ids_validos = {t["id"] for t in trechos}
+    if estado.strip():
+        ids_validos.add(FONTE_ESTADO)
     citadas = [f for f in fontes_citadas if f in ids_validos]
 
     # Sem fonte citada valida, nao ha o que ancorar. Uma resposta que nao
@@ -71,7 +88,7 @@ def verificar(resposta: str, trechos: list[dict], fontes_citadas: list[str]) -> 
     # So os trechos efetivamente citados sustentam a resposta. Usar toda a
     # base como lastro deixaria passar afirmacao vinda de outro documento.
     lastro = _normalizar(
-        " ".join(t["texto"] for t in trechos if t["id"] in citadas)
+        " ".join([t["texto"] for t in trechos if t["id"] in citadas] + [estado])
     )
 
     sem_fonte = [

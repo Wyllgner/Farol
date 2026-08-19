@@ -27,15 +27,26 @@ class ProviderFalso:
 
     nome = "openai"
 
-    def __init__(self, categoria, texto="", fontes=None, nao_sei=False, vetor=None):
+    def __init__(
+        self,
+        categoria,
+        texto="",
+        fontes=None,
+        nao_sei=False,
+        vetor=None,
+        no_escopo=True,
+    ):
         self._categoria = categoria
+        self._no_escopo = no_escopo
         self._texto = texto
         self._fontes = fontes or []
         self._nao_sei = nao_sei
         self._vetor = vetor
 
     async def classificar(self, texto):
-        return Classificacao(categoria=self._categoria, confianca=0.9)
+        return Classificacao(
+            categoria=self._categoria, confianca=0.9, no_escopo=self._no_escopo
+        )
 
     async def gerar_ancorado(self, pergunta, trechos):
         fontes = self._fontes
@@ -60,7 +71,7 @@ def db():
 def sem_ensaio(monkeypatch):
     """Desliga o Modo Ensaio para testar o caminho de resposta direta.
 
-    Com o ensaio ligado nada e enviado automaticamente — que e o correto,
+    Com o ensaio ligado nada e enviado automaticamente, que e o correto,
     mas nao e o que estes testes verificam.
     """
     from app.config import settings
@@ -88,7 +99,7 @@ def _instalar(monkeypatch, provider):
 
 
 # --------------------------------------------------------------------------
-# Caso 1 — responde ancorado
+# Caso 1: responde ancorado
 # --------------------------------------------------------------------------
 
 
@@ -120,7 +131,7 @@ async def test_responde_ancorado_em_fonte_oficial(
 
 
 # --------------------------------------------------------------------------
-# Caso 2 — recusa e escala sem fonte
+# Caso 2: recusa e escala sem fonte
 # --------------------------------------------------------------------------
 
 
@@ -168,7 +179,7 @@ async def test_afirmacao_sem_fonte_e_bloqueada(db, monkeypatch, doc_certificado)
 
 
 # --------------------------------------------------------------------------
-# Caso 3 — categoria sensivel escala sempre
+# Caso 3: categoria sensivel escala sempre
 # --------------------------------------------------------------------------
 
 
@@ -320,3 +331,117 @@ async def test_categoria_liberada_volta_a_responder(db, monkeypatch, doc_certifi
     assert not r.retido
     assert r.foi_entregue
     assert "75%" in r.resposta
+
+
+# --------------------------------------------------------------------------
+# Caso 4: fora do escopo delimita, e nao escala
+# --------------------------------------------------------------------------
+
+
+async def test_assunto_alheio_a_escola_nao_vira_caso(db, monkeypatch):
+    """Conversa fiada nao e trabalho de servidor.
+
+    Exige os dois sinais: a base nao cobre E o classificador diz que o
+    assunto nao e da Escola.
+    """
+    dimensao = len(db.scalar(select(Chunk.vetor)))
+    _instalar(
+        monkeypatch,
+        ProviderFalso(
+            categoria=Categoria.OUTROS,
+            no_escopo=False,
+            vetor=[0.0] * (dimensao - 1) + [1.0],
+        ),
+    )
+
+    r = await atender(
+        db, canal=Canal.WHATSAPP, handle="", pergunta="voce gosta de cachorro quente"
+    )
+
+    assert not r.escalou
+    assert r.caso is None, "conversa fiada nao pode ocupar a fila"
+    assert r.fora_do_escopo
+    assert not r.foi_entregue, "sem resposta de conhecimento nao ha contrato"
+    assert "cursos da EMERON" in r.resposta
+
+
+async def test_pergunta_sem_fonte_mas_do_escopo_continua_escalando(db, monkeypatch):
+    """A regra antiga nao pode ter sido afrouxada pela nova.
+
+    Pergunta legitima que a base nao cobre e exatamente o caso que precisa
+    de um servidor, e recusar por escopo aqui seria abandonar a pessoa.
+    """
+    dimensao = len(db.scalar(select(Chunk.vetor)))
+    _instalar(
+        monkeypatch,
+        ProviderFalso(
+            categoria=Categoria.OUTROS,
+            nao_sei=True,
+            no_escopo=True,
+            vetor=[0.0] * (dimensao - 1) + [1.0],
+        ),
+    )
+
+    r = await atender(
+        db,
+        canal=Canal.WHATSAPP,
+        handle="",
+        pergunta="quem vai ministrar o curso de direito digital",
+    )
+
+    assert r.escalou
+    assert r.caso is not None
+
+
+# --------------------------------------------------------------------------
+# Caso 5: o estado entregue ao modelo e recortado pelo assunto
+# --------------------------------------------------------------------------
+
+
+def _estado_de_exemplo():
+    return {
+        "primeiro_nome": "Simone",
+        "perfil": "servidor",
+        "cursos": [
+            {
+                "curso": "Linguagem Simples em Decisoes Judiciais",
+                "progresso_pct": 53.0,
+                "nunca_acessou": False,
+                "dois_fatores_configurado": False,
+                "situacao_certificado": "nao_elegivel",
+                "dias_ate_o_prazo": 3,
+            }
+        ],
+    }
+
+
+def test_pergunta_de_2fa_nao_recebe_relatorio_de_matricula():
+    """O modelo so pode citar o que recebeu.
+
+    Filtrar aqui e determinismo; pedir no prompt e torcer. Quem perguntou
+    do 2FA nao pediu situacao de certificado nem contagem de prazo.
+    """
+    resumo = servico.resumir_para_prompt(_estado_de_exemplo(), Categoria.DOIS_FATORES)
+
+    assert "2FA NAO configurado" in resumo
+    assert "Linguagem Simples" in resumo, "o curso da pessoa sai sempre"
+    assert "certificado" not in resumo
+    assert "prazo" not in resumo
+    assert "progresso" not in resumo
+
+
+def test_pergunta_de_certificado_recebe_o_que_decide_a_elegibilidade():
+    resumo = servico.resumir_para_prompt(_estado_de_exemplo(), Categoria.CERTIFICADO)
+
+    assert "certificado ainda nao liberado" in resumo
+    assert "progresso 53%" in resumo
+    assert "2FA" not in resumo
+
+
+def test_sem_categoria_conhecida_entrega_tudo():
+    """Um campo a mais e ruido; um campo a menos e nao conseguir responder."""
+    resumo = servico.resumir_para_prompt(_estado_de_exemplo())
+
+    assert "progresso 53%" in resumo
+    assert "2FA NAO configurado" in resumo
+    assert "certificado ainda nao liberado" in resumo

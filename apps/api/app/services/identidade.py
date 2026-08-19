@@ -3,7 +3,7 @@
 Tres niveis de acesso, escalando conforme a confianca na identidade.
 Um dado pessoal NUNCA sai no nivel anonimo.
 
-O produto continua util no nivel anonimo — o que cobre o publico externo
+O produto continua util no nivel anonimo: o que cobre o publico externo
 nao cadastrado, ignorado na maioria das solucoes.
 """
 
@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from app.enums import Canal, NivelIdentidade
 from app.models import Participante
 
-# Um codigo curto, valido por pouco tempo. Nao e autenticacao real — no
-# hackathon nada e — mas o contrato da funcao ja e o de producao.
+# Um codigo curto, valido por pouco tempo. Nao e autenticacao real: no
+# hackathon nada e, mas o contrato da funcao ja e o de producao.
 VALIDADE_CODIGO = timedelta(minutes=15)
 
 # Desafios pendentes em memoria: some no restart, e isso e correto para
@@ -48,7 +48,7 @@ class Identidade:
 def resolver(db: Session, canal: Canal, handle: str) -> Identidade:
     """Reconhece o interlocutor pelo identificador do canal.
 
-    Bater com o cadastro concede o nivel Reconhecido — nao mais que isso.
+    Bater com o cadastro concede o nivel Reconhecido, nao mais que isso.
     """
     if not handle:
         return Identidade(nivel=NivelIdentidade.ANONIMO)
@@ -68,7 +68,7 @@ def emitir_desafio(participante: Participante) -> str:
     """Gera o codigo enviado ao e-mail institucional.
 
     Em producao o codigo sai por e-mail e nunca retorna pela API. Aqui ele
-    e devolvido para a demonstracao — o adaptador de e-mail e o que muda.
+    e devolvido para a demonstracao: o adaptador de e-mail e o que muda.
     """
     codigo = f"{secrets.randbelow(1_000_000):06d}"
     _desafios[str(participante.id)] = (

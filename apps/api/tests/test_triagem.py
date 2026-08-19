@@ -46,7 +46,7 @@ def test_nao_sei_escala():
 
 @pytest.mark.parametrize("categoria", [Categoria.SENSIVEL, Categoria.RECLAMACAO])
 def test_categoria_sensivel_escala_sempre(categoria):
-    """Independentemente da confianca — inclusive com confianca maxima.
+    """Independentemente da confianca, inclusive com confianca maxima.
 
     Uma resposta muito confiante sobre dado pessoal e exatamente o caso
     que nao pode passar.

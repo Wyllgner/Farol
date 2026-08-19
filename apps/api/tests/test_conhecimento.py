@@ -2,7 +2,7 @@
 
 Rodam sem rede: o vetor da pergunta e substituido pelo vetor de um trecho
 ja indexado, o que garante que aquele trecho seria o melhor resultado
-possivel. E o cenario mais dificil para o filtro de vigencia — se ele
+possivel. E o cenario mais dificil para o filtro de vigencia, se ele
 exclui a fonte que casaria perfeitamente, exclui qualquer outra.
 """
 
@@ -59,7 +59,7 @@ def test_dividir_texto_vazio():
 
 
 # --------------------------------------------------------------------------
-# Vigencia — a regra da secao 7.2
+# Vigencia: a regra da secao 7.2
 # --------------------------------------------------------------------------
 
 

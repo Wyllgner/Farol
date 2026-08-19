@@ -1,6 +1,6 @@
 """Politica de Triagem (secao 5.3).
 
-Explicita, deterministica e auditavel — NAO e IA que decide quando escalar.
+Explicita, deterministica e auditavel, NAO e IA que decide quando escalar.
 Toda a logica aqui e codigo puro sobre valores do vocabulario controlado;
 nenhuma chamada de modelo acontece neste modulo, por design.
 
@@ -18,9 +18,9 @@ CONFIANCA_MEDIA = 0.45
 # A recusa e institucional e digna. Nao pede desculpas por existir nem
 # finge que o sistema falhou: delimita competencia.
 TEXTO_RECUSA = (
-    "Essa situacao exige analise de um servidor da SECOEAD e eu nao posso "
-    "decidir por eles. Ja encaminhei seu caso com todo o contexto e voce "
-    "recebera retorno por este mesmo canal."
+    "Essa situação precisa da análise de um servidor da SECOEAD, e eu não "
+    "posso decidir no lugar deles. Já encaminhei seu caso com todo o "
+    "contexto e você recebe o retorno por aqui mesmo."
 )
 
 
