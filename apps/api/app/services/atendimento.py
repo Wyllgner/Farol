@@ -138,6 +138,7 @@ async def atender(
             db,
             pergunta=pergunta,
             canal=canal,
+            handle=handle,
             categoria=categoria,
             identidade=identidade,
             estado=estado,
@@ -250,6 +251,7 @@ async def atender(
             db,
             pergunta=pergunta,
             canal=canal,
+            handle=handle,
             categoria=categoria,
             identidade=identidade,
             estado=estado,
@@ -268,6 +270,7 @@ async def atender(
             db,
             pergunta=pergunta,
             canal=canal,
+            handle=handle,
             categoria=categoria,
             identidade=identidade,
             estado=estado,
@@ -431,6 +434,7 @@ def _reter_em_ensaio(
     *,
     pergunta: str,
     canal: Canal,
+    handle: str,
     categoria: Categoria,
     identidade: Identidade,
     estado: dict,
@@ -449,6 +453,14 @@ def _reter_em_ensaio(
         decisao=decisao,
         ancoragem=ancoragem,
         rascunho=rascunho,
+        transcricao=dossie.transcrever(
+            db,
+            canal=canal,
+            handle=handle,
+            participante_id=(
+                identidade.participante.id if identidade.participante else None
+            ),
+        ),
     )
     pasta["resumo"] = (
         f"[MODO ENSAIO] {pasta.get('resumo', '')}: confira se a resposta "
@@ -499,6 +511,7 @@ def _escalar(
     *,
     pergunta: str,
     canal: Canal,
+    handle: str,
     categoria: Categoria,
     identidade: Identidade,
     estado: dict,
@@ -517,6 +530,14 @@ def _escalar(
         decisao=decisao,
         ancoragem=ancoragem,
         rascunho=rascunho,
+        transcricao=dossie.transcrever(
+            db,
+            canal=canal,
+            handle=handle,
+            participante_id=(
+                identidade.participante.id if identidade.participante else None
+            ),
+        ),
     )
 
     caso = Caso(

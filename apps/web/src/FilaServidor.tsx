@@ -301,7 +301,13 @@ function CartaoDeCaso({
 
         <span className="mt-2 flex flex-wrap items-center gap-1">
           <Etiqueta>{caso.categoria}</Etiqueta>
-          {caso.sensivel && <Etiqueta tom="alerta">sensível</Etiqueta>}
+          {/* A categoria "sensivel" ja diz que e sensivel: repetir a palavra
+              em duas etiquetas lado a lado parecia defeito de renderizacao.
+              A marca so acrescenta quando o assunto e outro e a politica
+              escalou mesmo assim. */}
+          {caso.sensivel && caso.categoria !== 'sensivel' && (
+            <Etiqueta tom="alerta">sensível</Etiqueta>
+          )}
           {caso.orientacao_padrao_falhou && (
             <Etiqueta tom="alerta">orientação falhou</Etiqueta>
           )}
@@ -532,6 +538,7 @@ function Dossie({ dossie }: { dossie: Record<string, unknown> }) {
   const naoCompreendida = dossie.resposta_que_nao_foi_compreendida as
     | string
     | undefined
+  const transcricao = (dossie.transcricao as Turno[] | undefined) ?? []
 
   return (
     <section className="mt-5 rounded-[--radius-card] border border-borda">
@@ -539,6 +546,15 @@ function Dossie({ dossie }: { dossie: Record<string, unknown> }) {
         <TituloSecao nivel={3}>Dossiê</TituloSecao>
       </div>
       <div className="divide-y divide-borda">
+
+      {/* A conversa vem primeiro. Uma pergunta solta e ilegivel: "e o meu?"
+          nao significa nada sem os dois turnos anteriores, e o servidor
+          reconstruia de cabeca o que o sistema ja tinha registrado. */}
+      {transcricao.length > 0 && (
+        <Bloco titulo={`Conversa (${transcricao.length} mensagens)`}>
+          <Transcricao turnos={transcricao} />
+        </Bloco>
+      )}
 
       {estado?.cursos?.length ? (
         <Bloco
@@ -623,6 +639,72 @@ function Dossie({ dossie }: { dossie: Record<string, unknown> }) {
       </details>
       </div>
     </section>
+  )
+}
+
+type Turno = {
+  quem: 'participante' | 'farol'
+  canal: string
+  texto: string
+  em: string | null
+  entregue: boolean
+}
+
+const NOME_DO_CANAL: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  widget_ava: 'Widget do AVA',
+  email: 'E-mail',
+  telefone: 'Telefone',
+}
+
+/**
+ * A conversa consolidada, do começo para o fim.
+ *
+ * Alinhada como um chat de propósito: o servidor precisa reconhecer num
+ * relance quem disse o quê, e uma lista de parágrafos iguais obrigaria a
+ * ler rótulo por rótulo.
+ *
+ * O canal aparece em cada turno porque a transcrição é unificada: a mesma
+ * pessoa começa no widget e continua no WhatsApp, e saber onde cada coisa
+ * foi dita muda como o servidor responde.
+ */
+function Transcricao({ turnos }: { turnos: Turno[] }) {
+  return (
+    <ol className="space-y-2.5">
+      {turnos.map((t, i) => {
+        const daPessoa = t.quem === 'participante'
+        return (
+          <li
+            key={`${t.em ?? i}-${i}`}
+            className={daPessoa ? 'pr-8' : 'pl-8'}
+          >
+            <div
+              className={[
+                'rounded-[--radius-card] border px-3 py-2',
+                daPessoa
+                  ? 'border-borda bg-superficie-alt'
+                  : 'border-azul-100 bg-azul-100/40',
+              ].join(' ')}
+            >
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-texto-suave">
+                <span className="font-semibold text-texto">
+                  {daPessoa ? 'Participante' : 'FAROL'}
+                </span>
+                <span>· {NOME_DO_CANAL[t.canal] ?? t.canal}</span>
+                {t.em && <span>· {new Date(t.em).toLocaleString('pt-BR')}</span>}
+                {/* Proativa na fila ainda não foi lida por ninguém. Sem esta
+                    marca, o servidor supõe que a pessoa já recebeu a
+                    orientação e responde como se ela tivesse ignorado. */}
+                {!t.entregue && <Etiqueta tom="alerta">não entregue</Etiqueta>}
+              </p>
+              <p className="mt-1 text-sm whitespace-pre-line text-texto">
+                {t.texto}
+              </p>
+            </div>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 

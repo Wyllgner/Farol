@@ -282,6 +282,12 @@ def _escalar_sem_entender(
         decisao=decisao,
         ancoragem=Ancoragem(intacta=False, afirmacoes_sem_fonte=["nao gerado"]),
         rascunho="",
+        transcricao=dossie.transcrever(
+            db,
+            canal=conversa.canal,
+            handle=conversa.handle_canal,
+            participante_id=conversa.participante_id,
+        ),
     )
     pasta["motivo_do_escalonamento"] = (
         "o FAROL nao entendeu a mensagem nem depois de pedir para reformular"
@@ -516,6 +522,12 @@ def _escalar_fluxo(db: Session, conversa: Conversa, estado: Estado) -> None:
         ancoragem=Ancoragem(intacta=False, afirmacoes_sem_fonte=["fluxo guiado"]),
         rascunho="",
         orientacao_padrao_falhou=True,
+        transcricao=dossie.transcrever(
+            db,
+            canal=conversa.canal,
+            handle=conversa.handle_canal,
+            participante_id=conversa.participante_id,
+        ),
     )
     pasta["passo_em_que_travou"] = {
         "indice": estado.passo + 1,

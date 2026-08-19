@@ -7,12 +7,22 @@ Nada e enviado automaticamente em nome da instituicao: o rascunho existe
 para ser revisado, nunca para ser disparado.
 """
 
+import uuid
 from datetime import UTC, datetime
 
-from app.enums import Categoria
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.enums import Canal, Categoria, Direcao
+from app.models import Conversa, Mensagem
 from app.services.ancoragem import Ancoragem
 from app.services.identidade import Identidade
 from app.services.triagem import Decisao
+
+# Quantos turnos entram na transcricao. O servidor precisa do fio da
+# conversa, nao do arquivo morto dela: vinte turnos cobrem o atendimento
+# inteiro nos casos reais e ainda cabem em uma tela.
+LIMITE_DE_TURNOS = 20
 
 # Peso por categoria no calculo de consequencia. Nao e urgencia generica:
 # e o que a instituicao efetivamente perde se ninguem atender.
@@ -32,6 +42,58 @@ PESO_CATEGORIA: dict[Categoria, float] = {
 }
 
 
+def transcrever(
+    db: Session,
+    *,
+    canal: Canal,
+    handle: str,
+    participante_id: uuid.UUID | None,
+    limite: int = LIMITE_DE_TURNOS,
+) -> list[dict]:
+    """Transcricao consolidada da conversa, unificada entre canais.
+
+    O servidor recebia so a ultima pergunta. Uma pergunta fora do fio da
+    conversa e ilegivel: "e o meu?" nao significa nada sem os dois turnos
+    anteriores, e quem atende ficava reconstruindo de cabeca o que o
+    sistema ja tinha registrado.
+
+    A unificacao entre canais nao e refinamento: a mesma pessoa comeca no
+    widget do AVA e continua no WhatsApp, e sem juntar as duas pontas o
+    servidor le metade do caso e responde o que ja foi respondido.
+    """
+    consulta = select(Mensagem).join(Conversa, Mensagem.conversa_id == Conversa.id)
+
+    if participante_id is not None:
+        # Identificada: tudo que a pessoa trocou com a Escola, em qualquer canal.
+        consulta = consulta.where(Conversa.participante_id == participante_id)
+    else:
+        # Anonima: nao ha a quem unificar. Fica no par canal+handle, porque
+        # cruzar so por handle arriscaria juntar duas pessoas diferentes.
+        consulta = consulta.where(
+            Conversa.canal == canal, Conversa.handle_canal == handle
+        )
+
+    mensagens = db.scalars(
+        consulta.order_by(Mensagem.criado_em.desc()).limit(limite)
+    ).all()
+
+    return [
+        {
+            "quem": "participante" if m.direcao is Direcao.ENTRADA else "farol",
+            "canal": str(m.conversa.canal),
+            "texto": m.conteudo,
+            "em": m.criado_em.isoformat() if m.criado_em else None,
+            # Proativa que ainda nao chegou nao e parte do que foi dito: o
+            # servidor precisa saber que ela esta na fila, e nao supor que
+            # a pessoa ja leu.
+            "entregue": m.direcao is Direcao.ENTRADA or m.entregue_em is not None,
+        }
+        # A consulta desce no tempo para pegar os ULTIMOS turnos; a leitura
+        # sobe, porque conversa se le do comeco.
+        for m in reversed(mensagens)
+    ]
+
+
 def montar(
     *,
     pergunta: str,
@@ -43,6 +105,7 @@ def montar(
     ancoragem: Ancoragem,
     rascunho: str,
     orientacao_padrao_falhou: bool = False,
+    transcricao: list[dict] | None = None,
 ) -> dict:
     """Monta o caso para leitura humana rapida."""
     return {
@@ -56,6 +119,8 @@ def montar(
         "sensivel": decisao.sensivel,
         "nivel_identidade": str(identidade.nivel),
         "pergunta": pergunta,
+        # Secao 5.6: transcricao consolidada, unificada entre canais.
+        "transcricao": transcricao or [],
         "estado_do_participante": estado,
         "fontes_consultadas": [
             {"documento": t["documento"], "dono": t["dono"], "score": t["score"]}
