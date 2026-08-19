@@ -1,10 +1,10 @@
-"""Ordens de Correcao (secao 6.2) — o laco do Andar 3.
+"""Ordens de Correcao (secao 6.2): o laco do Andar 3.
 
 Nao e sugestao em painel. E experimento com metodo: hipotese, evidencia,
 acao, PREVISAO NUMERICA, data de medicao e resultado.
 
 O FAROL nao da palpite. Faz uma previsao e volta em 30 dias para dizer se
-acertou — e quando erra, descarta a hipotese e propoe a proxima. Um
+acertou, e quando erra, descarta a hipotese e propoe a proxima. Um
 Andar 3 que so acumulasse sugestoes sem medir seria o banner de novo, em
 formato de dashboard.
 
@@ -256,7 +256,7 @@ def medir(db: Session, agora: datetime | None = None) -> dict:
 def acerto_das_previsoes(db: Session) -> dict:
     """Credibilidade do Andar 3: o quanto as previsoes acertam.
 
-    Publicado inclusive quando e ruim — o valor da metrica esta em ela
+    Publicado inclusive quando e ruim: o valor da metrica esta em ela
     poder desmentir o proprio sistema.
     """
     medidas = db.scalars(

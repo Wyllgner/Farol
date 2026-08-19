@@ -1,7 +1,7 @@
 """Descoberta de causa-raiz (secao 6.1).
 
 Agrupa as demandas por similaridade semantica, cruza com o grafo da
-jornada e localiza a ARESTA onde a duvida nasce — nao a categoria
+jornada e localiza a ARESTA onde a duvida nasce, nao a categoria
 generica, mas o ponto exato de falha.
 
 A diferenca importa: "senha" e uma categoria; "as pessoas nao encontram
@@ -9,7 +9,7 @@ o link da webconferencia no modulo 2" e uma causa. So a segunda pode ser
 corrigida.
 
 Usa HDBSCAN porque ele descobre agrupamentos que ninguem categorizou
-previamente e nao exige dizer de antemao quantos existem — o numero de
+previamente e nao exige dizer de antemao quantos existem: o numero de
 causas-raiz e justamente o que nao se sabe.
 """
 
@@ -95,7 +95,7 @@ def _clusterizar(vetores: np.ndarray) -> np.ndarray:
 def _aresta_predominante(db: Session, casos: list[Caso]) -> ArestaJornada | None:
     """Onde, no grafo, estavam as pessoas que perguntaram isso.
 
-    E a ponte entre "o que perguntam" e "onde travam" — e o mesmo grafo
+    E a ponte entre "o que perguntam" e "onde travam", e o mesmo grafo
     que o Andar 1 usa, o que evita duas verdades sobre a mesma jornada.
     """
     contagem: Counter[str] = Counter()
@@ -244,7 +244,7 @@ def concentracao_em_um_curso(cluster: Cluster, db: Session) -> tuple[str, float]
 def volume_no_periodo(
     db: Session, agrupamento_id, desde: datetime | None = None
 ) -> int:
-    """Quantos casos deste agrupamento no periodo — a linha de base.
+    """Quantos casos deste agrupamento no periodo: a linha de base.
 
     Sem uma linha de base explicita nao ha como dizer que o volume caiu:
     so daria para dizer que ele esta alto ou baixo, que e outra coisa.

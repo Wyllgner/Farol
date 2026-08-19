@@ -3,7 +3,7 @@
 Secao 10: "se a chamada ao modelo falhar, classificacao deterministica por
 palavras-chave assume. O sistema degrada com elegancia; nunca quebra."
 
-Este modulo nao e um stub descartavel — ele roda em producao toda vez que a
+Este modulo nao e um stub descartavel: ele roda em producao toda vez que a
 API de LLM estiver indisponivel, e e a resposta a uma pergunta previsivel da
 banca sobre dependencia de terceiros.
 """
@@ -54,6 +54,10 @@ class FallbackProvider:
                 # compreensao. Na Politica de Triagem isso leva a resposta
                 # com oferta de humano, nunca a resposta seca.
                 return Classificacao(categoria=categoria, confianca=0.55, degradado=True)
+        # no_escopo fica True sempre: sem modelo nao ha como julgar assunto,
+        # e recusar por escopo com base em ausencia de palavra-chave
+        # dispensaria gente com duvida legitima escrita de outro jeito.
+        # Degradado escala demais; nunca recusa demais.
         return Classificacao(categoria=Categoria.OUTROS, confianca=0.20, degradado=True)
 
     async def gerar_ancorado(self, pergunta: str, trechos: list[dict]) -> RespostaAncorada:

@@ -5,7 +5,7 @@ A funcionalidade que torna a adocao institucionalmente possivel.
 Nas primeiras semanas o FAROL roda em modo sombra: GERA a resposta, mas
 NAO envia. O servidor ve o que ele teria respondido, aprova ou corrige.
 So depois de atingir uma taxa de acerto acordada uma categoria e liberada
-para resposta automatica — categoria por categoria.
+para resposta automatica: categoria por categoria.
 
 Nenhuma instituicao do Judiciario liga no dia 1 um sistema que fala em
 nome da Casa. Nao pedimos confianca: pedimos duas semanas de observacao.
@@ -45,7 +45,7 @@ class Desempenho:
 
     @property
     def taxa_acerto(self) -> float | None:
-        """None enquanto nao ha revisao — nao inventamos numero."""
+        """None enquanto nao ha revisao, nao inventamos numero."""
         if self.revisados == 0:
             return None
         return round(self.aprovados / self.revisados, 4)
@@ -76,7 +76,7 @@ def deve_reter(db: Session, categoria: Categoria) -> bool:
     """A resposta desta categoria pode sair sozinha?
 
     Com o Modo Ensaio ligado, so sai o que ja foi liberado explicitamente.
-    O padrao e reter — o silencio nunca autoriza.
+    O padrao e reter: o silencio nunca autoriza.
     """
     if not ativo():
         return False
@@ -140,7 +140,7 @@ def registrar_revisao(db: Session, caso: Caso, aprovado: bool, servidor: str) ->
 
 
 def desempenho(db: Session) -> list[Desempenho]:
-    """Taxa de acerto por categoria — a base da decisao de liberar."""
+    """Taxa de acerto por categoria: a base da decisao de liberar."""
     linhas = db.execute(
         select(
             Caso.categoria,

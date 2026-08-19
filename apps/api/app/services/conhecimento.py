@@ -1,6 +1,6 @@
 """Base de conhecimento: chunking, indexacao e recuperacao semantica.
 
-O filtro de vigencia nao e um detalhe de consulta — e a regra da secao 7.2
+O filtro de vigencia nao e um detalhe de consulta, e a regra da secao 7.2
 implementada no unico lugar por onde a recuperacao passa. Uma resposta
 desatualizada com carimbo institucional e pior que nenhuma resposta,
 porque carrega a autoridade da Escola.
@@ -17,7 +17,7 @@ from app.models import Chunk, DocumentoConhecimento
 
 # Documentos de orientacao sao curtos. Quebramos por paragrafo e agrupamos
 # ate um teto de caracteres, para que cada trecho continue sendo uma unidade
-# de sentido — cortar no meio de um procedimento produz fonte inutil.
+# de sentido: cortar no meio de um procedimento produz fonte inutil.
 TETO_CHUNK = 700
 
 
@@ -121,7 +121,7 @@ async def buscar(
 
 
 def _marcar_citacao(db: Session, titulos: set[str]) -> None:
-    """Registra o uso da fonte — alimenta a curadoria dos 90 dias (F31)."""
+    """Registra o uso da fonte: alimenta a curadoria dos 90 dias (F31)."""
     db.execute(
         text(
             "UPDATE documento_conhecimento SET ultima_citacao = now() "

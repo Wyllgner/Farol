@@ -1,6 +1,6 @@
-"""Provedor Anthropic — classificacao e geracao ancorada.
+"""Provedor Anthropic: classificacao e geracao ancorada.
 
-Secao 18: a IA faz exatamente tres coisas — entender linguagem natural informal,
+Secao 18: a IA faz exatamente tres coisas, entender linguagem natural informal,
 recuperar o trecho que fundamenta a resposta, e descobrir agrupamentos de causa.
 Toda decisao (quando escalar, o que e sensivel) e regra deterministica fora daqui.
 """

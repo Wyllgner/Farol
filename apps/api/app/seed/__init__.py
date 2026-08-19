@@ -75,12 +75,12 @@ def _limpar(db) -> None:
     A ordem importa e a lista precisa incluir o que a OPERACAO gerou, nao
     so o que o seed criou. Apagar participantes sem apagar conversas
     deixava conversas orfas (o vinculo vira NULL por ondelete=SET NULL)
-    que eram reaproveitadas na proxima rodada — e o participante deixava
+    que eram reaproveitadas na proxima rodada, e o participante deixava
     de ser reconhecido sem que nada acusasse erro.
     """
     # A auditoria some primeiro, e por TRUNCATE. Duas razoes:
     #   1. apagar casos dispara ondelete=SET NULL sobre log_auditoria, que
-    #      e um UPDATE — recusado pelo trigger de imutabilidade;
+    #      e um UPDATE: recusado pelo trigger de imutabilidade;
     #   2. TRUNCATE nao aciona triggers de linha, entao a garantia de
     #      append-only continua valendo para toda a operacao normal.
     # Recriar o mundo ficticio nao e o mesmo que adulterar um registro:
@@ -140,7 +140,7 @@ def _semear_cursos(db, hoje: date) -> list[Curso]:
                 {
                     "titulo": "Encontro sincrono de encerramento",
                     # Data e HORA: o gatilho de webconferencia mede horas ate
-                    # o encontro, e uma data isolada vira meia-noite — ja no
+                    # o encontro, e uma data isolada vira meia-noite, ja no
                     # passado quando o motor roda. O primeiro curso tem um
                     # encontro daqui a poucas horas, para o gatilho ter alvo.
                     "quando": (

@@ -17,8 +17,8 @@ from app.db import engine
 from app.llm import obter_provider
 
 app = FastAPI(
-    title="FAROL v2 — API",
-    description="Fluxo de Atendimento, Resolucao e Orientacao em Laco — SECOEAD/EMERON",
+    title="FAROL v2: API",
+    description="Fluxo de Atendimento, Resolucao e Orientacao em Laco: SECOEAD/EMERON",
     version="0.1.0",
 )
 
@@ -48,7 +48,7 @@ def health() -> dict:
         with engine.connect() as conexao:
             conexao.execute(text("SELECT 1"))
         banco = "ok"
-    except Exception as erro:  # noqa: BLE001 — health check nunca deve derrubar o processo
+    except Exception as erro:  # noqa: BLE001, health check nunca deve derrubar o processo
         banco = f"erro: {erro.__class__.__name__}"
 
     provider = obter_provider()

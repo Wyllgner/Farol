@@ -1,7 +1,7 @@
 """Execucao dos lacos (secao 3).
 
 Nenhuma acao do FAROL termina no envio. Toda acao termina na verificacao
-do efeito — e verificar exige alguem passando periodicamente para
+do efeito, e verificar exige alguem passando periodicamente para
 conferir. E isso que vive aqui.
 
 O disparo e explicito e idempotente: o Console de Demonstracao chama a

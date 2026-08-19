@@ -2,7 +2,7 @@
 
 O motor nao opera sobre regras escritas a mao, e sim sobre este grafo.
 Cada aresta carrega uma taxa de travamento observada; quando uma aresta
-trava acima da media, o FAROL age ali — inclusive em pontos que ninguem
+trava acima da media, o FAROL age ali, inclusive em pontos que ninguem
 programou.
 
 E a mesma estrutura usada pelo Andar 3 para localizar onde a duvida

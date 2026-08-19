@@ -1,8 +1,8 @@
-"""Auditoria da Jornada — partida a frio (secao 6.3).
+"""Auditoria da Jornada: partida a frio (secao 6.3).
 
 O Andar 3 depende de historico acumulado, e no dia 1 a base esta vazia.
 Para gerar valor imediatamente, o FAROL varre o conteudo da plataforma
-procurando defeitos conhecidos que geram duvida — e produz as primeiras
+procurando defeitos conhecidos que geram duvida, e produz as primeiras
 ordens de correcao ANTES do primeiro atendimento.
 
 Os cinco defeitos procurados sao os do documento: prazo ausente ou
@@ -27,7 +27,7 @@ class Achado:
     evidencia: str
     acao: str
     # Quantos atendimentos por mes este defeito plausivelmente gera. E uma
-    # estimativa declarada como tal — a auditoria a frio nao tem medicao.
+    # estimativa declarada como tal: a auditoria a frio nao tem medicao.
     impacto_estimado: int
 
 
@@ -63,7 +63,7 @@ def _sem_caminho_para_suporte(texto: str) -> bool:
 
 
 def _link_tardio(texto: str) -> bool:
-    """Link critico mencionado so no fim do texto — o 'abaixo da dobra'.
+    """Link critico mencionado so no fim do texto: o 'abaixo da dobra'.
 
     Em documento textual, a dobra e a posicao: o que aparece depois de
     dois tercos do texto e o que a pessoa provavelmente nao le.

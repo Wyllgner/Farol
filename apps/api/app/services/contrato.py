@@ -4,13 +4,13 @@ O laco do Andar 2, e a funcionalidade que mais claramente separa o FAROL
 de um chatbot: cada atendimento e um contrato aberto que so fecha com
 confirmacao.
 
-O que isso resolve e o ERRO SILENCIOSO — o caso perigoso em que o sistema
+O que isso resolve e o ERRO SILENCIOSO: o caso perigoso em que o sistema
 tem confianca alta, responde errado, e ninguem percebe. Um chatbot
 comum encerraria ali, contabilizaria como sucesso e seguiria em frente.
 
 Regra que nao pode ser afrouxada: no "nao resolveu", o FAROL NAO repete a
 resposta. Ele escala, e o dossie carrega a informacao mais valiosa que
-existe — a orientacao padrao ja foi tentada e falhou para esta pessoa.
+existe: a orientacao padrao ja foi tentada e falhou para esta pessoa.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -109,7 +109,7 @@ def registrar_falha(db: Session, caso: Caso) -> Caso:
     """A pessoa disse que nao resolveu.
 
     Aqui esta a regra central: NAO repetimos a resposta. Escalamos, e o
-    servidor recebe explicitamente que a orientacao padrao falhou — e a
+    servidor recebe explicitamente que a orientacao padrao falhou, e a
     informacao mais util que ele pode ter antes de escrever.
     """
     caso.contrato_resolucao = ContratoResolucao.FALHOU
@@ -120,7 +120,7 @@ def registrar_falha(db: Session, caso: Caso) -> Caso:
     dossie_atual.update(
         {
             "resumo": (
-                f"{_nome_de(db, caso, dossie_atual)} — a resposta automatica foi "
+                f"{_nome_de(db, caso, dossie_atual)}: a resposta automatica foi "
                 f"entregue e a pessoa confirmou que NAO resolveu."
             ),
             "motivo_do_escalonamento": (
@@ -169,7 +169,7 @@ def expirar_sem_retorno(db: Session, agora: datetime | None = None) -> int:
 def _nome_de(db: Session, caso: Caso, dossie: dict) -> str:
     """Casos respondidos nao tem dossie montado; busca o nome do cadastro.
 
-    O servidor le a fila por resumo — um 'Participante' generico o obriga
+    O servidor le a fila por resumo: um 'Participante' generico o obriga
     a abrir o caso so para descobrir com quem esta falando.
     """
     estado = dossie.get("estado_do_participante") or {}

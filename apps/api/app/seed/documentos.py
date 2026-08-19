@@ -5,7 +5,7 @@ orientacoes que o setor de fato publica.
 
 Todo documento tem dono e validade (secao 7.2): conteudo com data expira
 ao fim do curso, e fonte vencida nao responde. Um documento aqui esta
-deliberadamente vencido — e o caso que prova que o filtro de vigencia
+deliberadamente vencido, e o caso que prova que o filtro de vigencia
 funciona, e nao apenas que existe.
 """
 
@@ -107,7 +107,7 @@ DOCUMENTOS: list[tuple[str, str, int | None, str]] = [
         None,
         "Se voce concluiu todas as atividades e o botao de emitir certificado "
         "nao aparece, a causa mais comum e uma atividade marcada como concluida "
-        "mas nao enviada — rascunhos salvos nao contam como entrega. Verifique "
+        "mas nao enviada: rascunhos salvos nao contam como entrega. Verifique "
         "no Relatorio de Progresso se todas as atividades estao com situacao "
         "'Enviado'. O processamento da liberacao tambem pode levar ate 24 horas "
         "apos a ultima entrega. Passado esse prazo com todas as atividades "
@@ -154,7 +154,7 @@ DOCUMENTOS: list[tuple[str, str, int | None, str]] = [
         "as atividades de cada modulo. O Relatorio de Progresso, na pagina do "
         "curso, mostra o que ja foi concluido e o que falta. A leitura de "
         "material so e computada quando o arquivo e efetivamente aberto no "
-        "sistema — baixar o PDF sem abrir nao registra progresso.",
+        "sistema: baixar o PDF sem abrir nao registra progresso.",
     ),
     (
         "Atualizacao de dados cadastrais",

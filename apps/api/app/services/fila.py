@@ -20,7 +20,7 @@ from app.services import auditoria
 from app.services.conhecimento import indexar
 
 # Janela de deduplicacao entre canais (secao 5.9). A mesma pessoa
-# perguntando o mesmo assunto por WhatsApp e por e-mail e UM caso — e o
+# perguntando o mesmo assunto por WhatsApp e por e-mail e UM caso, e o
 # retrabalho por duplicidade que o proprio formulario do setor relata.
 JANELA_DEDUPLICACAO = timedelta(hours=6)
 
@@ -61,7 +61,7 @@ def assumir(db: Session, caso: Caso, servidor: str) -> Caso:
 def responder(db: Session, caso: Caso, texto: str, servidor: str) -> Caso:
     """Envia a resposta revisada pelo servidor.
 
-    O texto que sai e o que o servidor escreveu ou editou — nunca o
+    O texto que sai e o que o servidor escreveu ou editou: nunca o
     rascunho cru. A revisao humana e o contrato com a instituicao.
     """
     caso.resposta_enviada = texto
@@ -132,7 +132,7 @@ def encontrar_duplicado(
 ) -> Caso | None:
     """Mesma pessoa, mesmo assunto, janela curta: e o mesmo caso.
 
-    Sem participante identificado nao ha como deduplicar com seguranca —
+    Sem participante identificado nao ha como deduplicar com seguranca: 
     e juntar casos de pessoas diferentes seria pior que duplicar.
     """
     if participante_id is None:

@@ -2,7 +2,7 @@
 
 Trata a apresentacao como funcionalidade, porque e onde o produto e
 julgado. Sem isto, demonstrar os lacos exigiria comandos de banco na
-frente da banca — e um laco que so pode ser mostrado por SQL nao foi
+frente da banca, e um laco que so pode ser mostrado por SQL nao foi
 demonstrado.
 
 Regra que vale para tudo aqui: o console NAO tem caminho proprio. Ele
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Avancar o tempo e recuar os carimbos de data: do ponto de vista do
 # sistema, e a mesma coisa, e nao exige um relogio falso espalhado pelo
-# codigo — o que faria o caminho da demo divergir do caminho real.
+# codigo: o que faria o caminho da demo divergir do caminho real.
 TABELAS_COM_TEMPO: list[tuple[str, list[str]]] = [
     ("caso", ["criado_em", "contrato_perguntado_em", "assumido_em", "encerrado_em"]),
     ("evento_proativo", ["criado_em", "enviado_em", "verificar_em"]),
@@ -34,7 +34,7 @@ TABELAS_COM_TEMPO: list[tuple[str, list[str]]] = [
     ("matricula", ["ultimo_acesso"]),
     # log_auditoria fica DE FORA de proposito: a tabela e append-only por
     # trigger no banco, e nem o console de demonstracao pode reescrever a
-    # auditoria. O log registra quando as coisas de fato aconteceram —
+    # auditoria. O log registra quando as coisas de fato aconteceram: 
     # move-lo no tempo seria falsificar o registro, que e exatamente o que
     # a imutabilidade existe para impedir.
 ]
@@ -94,7 +94,7 @@ def alternar_ensaio(db: Session, ativo: bool) -> dict:
     """Liga ou desliga o Modo Ensaio ao vivo.
 
     A mudanca vale para o processo em execucao. Em producao isso seria
-    configuracao versionada, nao um botao — mas na apresentacao precisa
+    configuracao versionada, nao um botao, mas na apresentacao precisa
     ser um botao.
     """
     settings.modo_ensaio = ativo
@@ -106,14 +106,14 @@ def cenarios(db: Session) -> list[Cenario]:
     """Participantes escolhidos por estado, nao por ordem alfabetica.
 
     Quem apresenta precisa achar em um clique a pessoa que aciona cada
-    comportamento — procurar na lista de 60 durante a demo e como nao ter
+    comportamento: procurar na lista de 60 durante a demo e como nao ter
     o console.
     """
     encontrados: list[Cenario] = []
     ja_usados: set[str] = set()
 
     def adicionar(matricula: Matricula, rotulo: str, detalhe: str) -> bool:
-        """Devolve se de fato incluiu — quem chama precisa saber para
+        """Devolve se de fato incluiu: quem chama precisa saber para
         continuar procurando em vez de desistir no primeiro repetido."""
         telefone = matricula.participante.telefone
         if not telefone or telefone in ja_usados:

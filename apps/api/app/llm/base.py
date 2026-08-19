@@ -18,6 +18,19 @@ class Classificacao:
     # A tela "Como o FAROL decide" expoe isso: o sistema nao esconde
     # quando esta operando degradado.
     degradado: bool = False
+    # A mensagem trata de assunto da Escola? False so quando o modelo tem
+    # certeza de que nao. O padrao e True porque a duvida tem que ir para
+    # o caminho que termina em atendimento humano, nunca em recusa.
+    no_escopo: bool = True
+
+
+# Fonte citavel que nao e um trecho da base: o estado individual do
+# participante, lido do banco. "Voce esta no curso X e faltam 15 dias" nao
+# consta em documento nenhum, e ainda assim e a afirmacao mais verificavel
+# que o sistema pode fazer. Sem isto, toda pergunta sobre o proprio caso
+# escalava por falta de fonte, que e justamente o que o Andar 2 promete
+# responder.
+FONTE_ESTADO = "estado-do-participante"
 
 
 @dataclass(slots=True)
