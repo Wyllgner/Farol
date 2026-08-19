@@ -157,6 +157,14 @@ O sistema verifica e registra o resultado. Isso produz a métrica que realmente 
 
 Gatilhos com efetividade abaixo do limiar são **automaticamente desativados**. O sistema não insiste no que não funciona, que foi exatamente o erro do banner.
 
+### Onde o relógio começa: montar não é entregar
+
+O prazo da hipótese só começa a correr quando a mensagem **chega**, e não quando ela é montada. A distinção não é purismo:
+
+> Contar os 7 dias a partir do momento em que a mensagem foi *montada* creditaria ao gatilho um efeito que ele não teve. A pessoa não abriu chamado porque **não viu nada**, não porque foi ajudada.
+
+Como o desligamento automático de gatilho deriva dessa medição, o erro não ficaria só no painel: mudaria o comportamento do motor, desligando gatilhos bons e mantendo gatilhos ruins. Por isso a mensagem fica em fila até o canal a colocar na frente da pessoa — o espelho abre, o widget carrega, a Cloud API confirma o recebimento — e é esse instante que inicia o relógio e debita o orçamento de atenção. **Interromper alguém só custa quando de fato interrompe.**
+
 ---
 
 # 5. ANDAR 2: RESOLVER
@@ -186,6 +194,20 @@ O produto continua útil no nível anônimo: o que cobre o **público externo n�
 **4. Geração ancorada**, sob restrição rígida: *responder exclusivamente com base nos trechos recuperados e nos dados de estado; se insuficiente, retornar NÃO_SEI*.
 
 **5. Verificação de ancoragem**: se a resposta contiver afirmação não sustentada pelas fontes, ela é bloqueada.
+
+### 5.2.1 Antes do pipeline: o que não é pergunta
+
+Três situações chegavam ao pipeline e saíam dele como "dúvida sem fonte", escalando para um servidor. Nenhuma delas era dúvida:
+
+| O que chega | Por que o pipeline errava | O que o FAROL faz |
+|---|---|---|
+| *"bom dia"*, *"obrigado"*, *"era só isso"* | saudação não tem fonte oficial que a sustente, então virava recusa | reconhece e responde como conversa. **Escalar um "oi" gasta o tempo de quem atende e ensina a pessoa que o canal não conversa** |
+| *"mas que curso é esse?"* | tratada como primeira mensagem, virava consulta isolada, casava com o documento errado e produzia resposta correta para uma pergunta que ninguém fez | resolve a dependência **antes** da recuperação: a consulta enviada à busca é a soma dos dois turnos |
+| *"ainda não entendi"* | tratada como "não funcionou", caía no Contrato de Resolução e escalava | reescreve **uma vez**, em passos curtos, a partir das **mesmas** fontes. Não há nova recuperação porque o assunto não mudou |
+
+A diferença entre *"não entendi"* e *"não funcionou"* é a diferença entre um problema de redação e um problema de procedimento. Escalar o primeiro joga para um servidor um trabalho que era nosso; mandar a pessoa embora sem resposta é o pior desfecho possível para quem acabou de admitir que não entendeu.
+
+O reconhecimento da conversa social é **determinístico**, sobre vocabulário fechado: nenhuma chamada de modelo, pelas mesmas razões do opt-out.
 
 ## 5.3 Política de Triagem
 
@@ -366,45 +388,61 @@ Toda interação é registrada em log imutável: entrada, classificação, fonte
 
 # 8. CATÁLOGO COMPLETO DE FUNCIONALIDADES
 
-| # | Funcionalidade | Andar | Fecha laço |
-|---|---|---|---|
-| F01 | Grafo da jornada com detecção de travamento | 1 | |
-| F02 | Cinco gatilhos proativos base | 1 | |
-| F03 | Orçamento de atenção por participante | 1 | |
-| F04 | Opt-out de avisos em toda mensagem | 1 | |
-| F05 | **Verificação de efeito da antecipação** | 1 | 🔄 |
-| F06 | Desativação automática de gatilho inefetivo | 1 | 🔄 |
-| F07 | Identidade progressiva em três níveis | 2 | |
-| F08 | Classificação de intenção em 12 categorias | 2 | |
-| F09 | Recuperação semântica na base oficial | 2 | |
-| F10 | Resposta personalizada por estado individual | 2 | |
-| F11 | Verificação de ancoragem em fonte | 2 | |
-| F12 | Política de triagem determinística | 2 | |
-| F13 | Recusa institucional com escalonamento | 2 | |
-| F14 | Escalonamento incondicional de categoria sensível | 2 | |
-| F15 | Fluxo guiado executável com verificação por etapa | 2 | |
-| F16 | **Contrato de resolução com confirmação** | 2 | 🔄 |
-| F17 | Dossiê automático para o servidor | 2 | |
-| F18 | Rascunho de resposta editável | 2 | |
-| F19 | Fila priorizada por consequência | 2 | |
-| F20 | Aprovação de resposta como conhecimento oficial | 2 | 🔄 |
-| F21 | Deduplicação de demanda entre canais | 2 | |
-| F22 | Cobertura WhatsApp + widget AVA + e-mail | 2 | |
-| F23 | Conversão de ligação perdida em mensagem | 2 | |
-| F24 | Agrupamento semântico de demandas | 3 | |
-| F25 | Localização da aresta de origem da dúvida | 3 | |
-| F26 | **Ordem de correção com previsão e medição** | 3 | 🔄 |
-| F27 | Descarte de hipótese que falhou | 3 | 🔄 |
-| F28 | Auditoria da jornada para partida a frio | 3 | |
-| F29 | Catálogo de causas transferível entre escolas | 3 | |
-| F30 | Modo Ensaio com liberação por categoria | T | |
-| F31 | Validade e curadoria do conhecimento | T | 🔄 |
-| F32 | Tela "Como o FAROL decide" | T | |
-| F33 | Espelho do Servidor (docentes e equipe) | T | |
-| F34 | Log de auditoria imutável | T | |
-| F35 | Painel de indicadores com métrica invertida | T | |
+A coluna **Roda** separa o que está implementado e é demonstrável agora (●) do que está parcialmente construído (◐) ou projetado com o contrato definido, mas não construído no protótipo (○). A distinção é deliberada: um catálogo que não separa as duas coisas convida a banca a pedir a demonstração justamente do que não existe.
 
-**🔄 = funcionalidade que fecha um laço de aprendizado.** São 9 das 35, e são elas que fazem o sistema melhorar sozinho.
+| # | Funcionalidade | Andar | Fecha laço | Roda |
+|---|---|---|---|---|
+| F01 | Grafo da jornada com detecção de travamento | 1 | | ● |
+| F02 | Cinco gatilhos proativos base | 1 | | ● |
+| F03 | Orçamento de atenção por participante | 1 | | ● |
+| F04 | Opt-out de avisos em toda mensagem | 1 | | ● |
+| F05 | **Verificação de efeito da antecipação** | 1 | 🔄 | ● |
+| F06 | Desativação automática de gatilho inefetivo | 1 | 🔄 | ● |
+| F07 | Identidade progressiva em três níveis | 2 | | ● |
+| F08 | Classificação de intenção em 12 categorias | 2 | | ● |
+| F09 | Recuperação semântica na base oficial | 2 | | ● |
+| F10 | Resposta personalizada por estado individual | 2 | | ● |
+| F11 | Verificação de ancoragem em fonte | 2 | | ● |
+| F12 | Política de triagem determinística | 2 | | ● |
+| F13 | Recusa institucional com escalonamento | 2 | | ● |
+| F14 | Escalonamento incondicional de categoria sensível | 2 | | ● |
+| F15 | Fluxo guiado executável com verificação por etapa | 2 | | ● |
+| F16 | **Contrato de resolução com confirmação** | 2 | 🔄 | ● |
+| F17 | Dossiê automático para o servidor | 2 | | ● |
+| F18 | Rascunho de resposta editável | 2 | | ● |
+| F19 | Fila priorizada por consequência | 2 | | ● |
+| F20 | Aprovação de resposta como conhecimento oficial | 2 | 🔄 | ● |
+| F21 | Deduplicação de demanda entre canais | 2 | | ● |
+| F22 | Cobertura WhatsApp + widget AVA + e-mail | 2 | | ◐ |
+| F23 | Conversão de ligação perdida em mensagem | 2 | | ○ |
+| F24 | Agrupamento semântico de demandas | 3 | | ● |
+| F25 | Localização da aresta de origem da dúvida | 3 | | ● |
+| F26 | **Ordem de correção com previsão e medição** | 3 | 🔄 | ● |
+| F27 | Descarte de hipótese que falhou | 3 | 🔄 | ● |
+| F28 | Auditoria da jornada para partida a frio | 3 | | ● |
+| F29 | Catálogo de causas transferível entre escolas | 3 | | ○ |
+| F30 | Modo Ensaio com liberação por categoria | T | | ● |
+| F31 | Validade e curadoria do conhecimento | T | 🔄 | ● |
+| F32 | Tela "Como o FAROL decide" | T | | ● |
+| F33 | Espelho do Servidor (docentes e equipe) | T | | ○ |
+| F34 | Log de auditoria imutável | T | | ● |
+| F35 | Painel de indicadores com métrica invertida | T | | ● |
+| **F36** | **Entrega diferida: o relógio começa quando a mensagem chega** | 1 | 🔄 | ● |
+| **F37** | **Conversa social reconhecida sem escalar** | 2 | | ● |
+| **F38** | **Continuidade entre turnos da conversa** | 2 | | ● |
+| **F39** | **Esclarecimento: "não entendi" ≠ "não funcionou"** | 2 | | ● |
+| **F40** | **Série histórica do painel: a curva, não o instante** | T | | ● |
+
+**🔄 = funcionalidade que fecha um laço de aprendizado.** São 10 das 40, e são elas que fazem o sistema melhorar sozinho.
+
+### O que roda e o que não roda
+
+**36 das 40 estão implementadas e são demonstráveis.** As exceções:
+
+- **F22 (◐)** — WhatsApp e widget do AVA rodam ponta a ponta. O e-mail entra pelo **mesmo contrato de adaptador**, já definido em código, mas não foi implementado.
+- **F23, F29, F33 (○)** — projetados, não construídos.
+
+As quatro compartilham uma característica: são **conteúdo e adaptador, não motor**. O e-mail e o telefone entram pelo contrato que o WhatsApp já exercita; o Espelho do Servidor é a mesma máquina com outra base de conhecimento; o catálogo entre escolas é a exportação de uma tabela que já existe. Construí-las provaria de novo o que o WhatsApp já prova. O prazo foi gasto nos laços fechados, que são o que distingue o produto.
 
 ---
 
@@ -532,10 +570,10 @@ Toda interação é registrada em log imutável: entrada, classificação, fonte
 ## 12.1 As seis superfícies
 
 1. **Simulador de WhatsApp** (participante, celular): réplica fiel: bolhas, horário, "digitando…", respostas rápidas.
-2. **Widget no AVA** (participante, desktop): bolha de ajuda com contexto de página.
+2. **Widget no AVA** (participante, desktop): bolha de ajuda com contexto de página, demonstrada em **duas telas** sobre um print do AVA real. A tela de **login** responde à pergunta que sempre aparece primeiro — *"isso só funciona para quem já conseguiu entrar?"* — e a resposta é não: sem identidade, o FAROL responde o que é público, que é exatamente o que socorre quem travou **antes** do login. A tela de **dentro do curso** mostra o outro extremo, com o widget sabendo quem é a pessoa e em que página ela está.
 3. **Fila do Servidor** (desktop): casos priorizados, dossiê expansível, rascunho editável, cronômetro, botão de aprovação de conhecimento.
 4. **Radar de Causas** (gestor): **tela de recomendação, não de gráfico**: uma ordem de correção em destaque com previsão e status; gráficos secundários abaixo.
-5. **Indicadores**: poucos números, grandes, com a métrica invertida no topo.
+5. **Indicadores**: a métrica invertida em três números grandes no topo, seguida das séries que provam a direção (ver 14.1).
 6. **Como o FAROL decide**: política de triagem, regras do grafo, contador de respostas sem fonte.
 
 *(+ Console de Demonstração para apresentação: trocar participante, avançar o tempo, disparar gatilhos, resetar.)*
@@ -591,6 +629,18 @@ O formulário confirma: *"Há dados pessoais ou informações sigilosas? Sim."*
 
 Todo painel de chatbot comemora quando o número de conversas sobe. O do FAROL comemora quando desce, porque significa que as causas estão sendo eliminadas. É a única solução cujo KPI é a própria irrelevância futura.
 
+### Um número não prova uma tese. Uma série prova.
+
+"279 atendimentos evitados" é um contador: não diz se estamos melhorando ou piorando. A afirmação do produto é sobre **direção**, e direção só se enxerga no tempo. Por isso o painel abre com duas curvas semanais no mesmo eixo — os atendimentos que chegaram à equipe e os que foram evitados pela antecipação — e o momento em que elas se cruzam é a tese acontecendo na tela.
+
+Abaixo delas, o volume por categoria em escala compartilhada: as duas categorias que receberam ordem de correção despencam enquanto as demais seguem no patamar de sempre. **É esse contraste que separa "a causa foi extinta" de "o movimento caiu"** — sem ele, qualquer queda sazonal passaria por vitória.
+
+Três regras que o painel obedece, e que valem mais que o desenho:
+
+1. **A série termina na última semana fechada.** A semana em curso tem dois dias de dado onde as outras têm sete: plotada junto, ela desenha uma queda que não aconteceu. Seria o próprio painel fabricando a evidência que o produto promete medir.
+2. **Nenhum valor é escrito na tela.** Tudo é agregado por consulta sobre as tabelas de operação. Se a curva subir, o painel mostra subindo.
+3. **A previsão que falhou fica publicada.** Das quatro ordens medidas, três confirmaram e uma foi descartada — e a taxa de acerto exibe 75%, não 100%. Uma métrica de acerto que nunca mostra erro não está medindo nada.
+
 ## 14.2 Métricas primárias
 
 | Métrica | Definição | Meta 6 meses |
@@ -641,9 +691,13 @@ Verificação de efeito da antecipação · aprovação de conhecimento pelo ser
 
 ## ❌ NÃO CONSTRUIR
 
-Integração real com Moodle/AVA · API oficial do WhatsApp · autenticação real · app móvel nativo · fine-tuning · URA com reconhecimento de voz · gamificação · fórum entre participantes · gráficos adicionais no painel
+Integração real com Moodle/AVA · API oficial do WhatsApp · autenticação real · app móvel nativo · fine-tuning · URA com reconhecimento de voz · gamificação · fórum entre participantes · **gráfico que não sustenta uma afirmação do produto**
 
 > **Regra:** se a melhoria adiciona uma tela, desconfie. Se fecha um laço, priorize.
+
+**Sobre gráficos, especificamente.** A versão anterior deste documento proibia "gráficos adicionais no painel", e a proibição estava certa pelo motivo errado. O que faz mal a um painel não é a quantidade de gráficos: é o gráfico decorativo, aquele que ocupa espaço sem responder a nenhuma pergunta que alguém realmente tem. A regra correta é mais exigente: **cada gráfico precisa carregar uma afirmação que a tese faz e que um número sozinho não consegue sustentar.**
+
+Pelo critério novo, quatro passam — a curva que desce (a tese), o volume por categoria (a causa foi extinta, não o movimento), previsto contra medido (a credibilidade do Andar 3) e o destino dos casos (quem decidiu escalar) — e um donut de "satisfação geral" continua reprovado, como sempre esteve.
 
 ---
 
@@ -708,6 +762,15 @@ Integração real com Moodle/AVA · API oficial do WhatsApp · autenticação re
 **"O que impede um concorrente de copiar?"**
 > Os dois primeiros andares são copiáveis. O terceiro não, porque não é código: é o laço operacional em que o servidor aprova conhecimento e a instituição implementa correções medidas. Quem copiar a interface leva três dias; quem quiser copiar o efeito precisa de meses de operação acumulada.
 
+**"Esses números do painel são reais ou são inventados para a demonstração?"**
+> São fictícios, como manda a regra do desafio, e estão **no banco**, não na tela. O painel não tem um único valor escrito no código: tudo é agregado por consulta sobre as mesmas tabelas que a operação grava. É por isso que a taxa de acerto das previsões mostra 75% e não 100%: uma das quatro ordens de correção errou a previsão, e o painel publica o erro porque quem calcula é o sistema, não o slide.
+
+**"Vocês escalam para um humano toda vez que a IA não sabe. Isso não vira uma fila enorme?"**
+> Viraria, se tudo que não é resposta fosse tratado como dúvida. Três coisas chegam ao canal e não são pergunta: saudação, pergunta que depende do turno anterior, e "ainda não entendi". As três escalavam. Hoje o FAROL reconhece cada uma: conversa social é respondida como conversa, a pergunta dependente é resolvida somando os dois turnos antes da busca, e o "não entendi" é reescrito **uma vez** a partir das mesmas fontes. Escalar um "oi" gasta o tempo de quem atende e ensina a pessoa que o canal não conversa.
+
+**"Como vocês sabem que a pessoa realmente recebeu o aviso?"**
+> Porque montar a mensagem e entregá-la são eventos diferentes, e o sistema só conta o segundo. O relógio da hipótese começa quando o canal põe a mensagem na frente da pessoa. Se contássemos a partir do momento em que a mensagem foi montada, creditaríamos ao gatilho um efeito que ele não teve: a pessoa não abriu chamado porque não viu nada. E como o desligamento automático de gatilho deriva dessa medição, o erro não ficaria no painel — desligaria os gatilhos certos e manteria os errados.
+
 **"Qual é o maior risco?"**
 > Adoção institucional, não tecnologia. Se ninguém olhar as ordens de correção, o terceiro andar morre. Por isso entregamos **uma** correção por vez, com impacto estimado em atendimentos/mês, e por isso existe o Modo Ensaio: não pedimos confiança, pedimos duas semanas de observação.
 
@@ -743,3 +806,4 @@ Quantos atendimentos por dia, por canal, e tempo médio? · Quais as 10 dúvidas
 **Três andares:** Antecipar · Resolver · Extinguir.
 **Diferencial:** o único que age antes da pergunta, responde sobre o caso da pessoa, se recusa quando não sabe, confirma se resolveu, e elimina a causa com previsão medida.
 **Métrica invertida:** sucesso é ser usado cada vez menos.
+**Estado:** 36 das 40 funcionalidades rodando; as quatro restantes são adaptador e conteúdo, não motor.
