@@ -37,18 +37,30 @@ def regras():
 
 @pytest.fixture
 def disponivel(db) -> Participante:
-    """Participante que aceita avisos e tem saldo.
+    """Participante que aceita avisos, tem saldo e nenhuma hipotese aberta.
 
     O seed inclui gente que ja optou por nao receber: pegar "o primeiro"
     tornaria o teste dependente da ordem do banco.
+
+    A ausencia de evento proativo tambem e requisito, e nao detalhe. Estes
+    testes exercitam a PRIMEIRA interrupcao de alguem, e o motor barra um
+    gatilho que ja disparou para a mesma pessoa. Rodar a demonstracao ou
+    semear o historico enche o banco de eventos; sem este filtro o teste
+    passava ou falhava conforme o que tivesse sido executado antes dele,
+    que e a pior especie de teste: o que mente nas duas direcoes.
     """
+    com_evento = select(EventoProativo.participante_id)
     participante = db.scalars(
         select(Participante)
         .where(Participante.aceita_avisos.is_(True))
         .where(Participante.saldo_atencao > 0)
+        .where(Participante.id.not_in(com_evento))
         .order_by(Participante.email)
     ).first()
-    assert participante is not None, "rode `make seed` antes dos testes"
+    assert participante is not None, (
+        "nenhum participante sem hipotese aberta: rode `make seed` "
+        "(ou `python -m app.seed`) antes dos testes"
+    )
     return participante
 
 
