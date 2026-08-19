@@ -3,7 +3,7 @@
 Quando escala, o servidor nao recebe "oi, preciso de ajuda". Recebe o caso
 montado, legivel em 10 segundos: critico no topo, rascunho pronto.
 
-Nada e enviado automaticamente em nome da instituicao — o rascunho existe
+Nada e enviado automaticamente em nome da instituicao: o rascunho existe
 para ser revisado, nunca para ser disparado.
 """
 
@@ -85,20 +85,20 @@ def _resumir(
     # oficial ja foi tentada e nao funcionou para esta pessoa.
     if orientacao_padrao_falhou:
         return (
-            f"{quem} — {categoria}: a orientacao padrao ja foi tentada e "
+            f"{quem}: {categoria}: a orientacao padrao ja foi tentada e "
             f"nao resolveu. Precisa de atendimento humano."
         )
 
     if decisao.sensivel:
-        return f"{quem} — assunto sensivel ({categoria}), encaminhado por politica."
+        return f"{quem}: assunto sensivel ({categoria}), encaminhado por politica."
 
     curso = (estado.get("cursos") or [{}])[0]
     if curso.get("dias_ate_o_prazo") is not None and curso["dias_ate_o_prazo"] <= 3:
         return (
-            f"{quem} — {categoria}, prazo em {curso['dias_ate_o_prazo']} dia(s) "
+            f"{quem}: {categoria}, prazo em {curso['dias_ate_o_prazo']} dia(s) "
             f"e progresso {curso.get('progresso_pct', 0):.0f}%."
         )
-    return f"{quem} — {categoria}, sem fonte suficiente para responder."
+    return f"{quem}: {categoria}, sem fonte suficiente para responder."
 
 
 def score_consequencia(categoria: Categoria, estado: dict) -> float:

@@ -82,7 +82,7 @@ export default function RadarCausas() {
       <CabecalhoConteudo
         chapeu="Gestão · Extinguir a causa"
         titulo="Radar de Causas"
-        descricao="Uma correção por vez, com previsão numérica e medição em 30 dias. O FAROL não dá palpite — ele volta para dizer se acertou."
+        descricao="Uma correção por vez, com previsão numérica e medição em 30 dias. O FAROL não dá palpite: ele volta para dizer se acertou."
         acao={
           <Botao
             tom="secundario"
@@ -190,7 +190,7 @@ export default function RadarCausas() {
         <ul className="mt-3 space-y-2">
           {radar?.agrupamentos.length === 0 && (
             <li className="text-sm text-texto-suave">
-              Nenhum agrupamento ainda — são necessários ao menos 3 casos
+              Nenhum agrupamento ainda: são necessários ao menos 3 casos
               semelhantes.
             </li>
           )}

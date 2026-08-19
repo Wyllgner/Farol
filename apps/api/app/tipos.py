@@ -3,7 +3,7 @@
 Guardar enums como texto e a escolha certa (schema legivel, sem tipo
 nativo do Postgres para migrar), mas o SQLAlchemy devolve `str` puro na
 leitura. Isso quebra silenciosamente qualquer comparacao por identidade
-— `caso.situacao is SituacaoCaso.ESCALADO` vira False depois de um
+`caso.situacao is SituacaoCaso.ESCALADO` vira False depois de um
 reload, sem erro e sem aviso.
 
 Este decorador reconstroi o enum na leitura, para que o objeto vindo do

@@ -1,4 +1,4 @@
-"""Endpoints do Andar 1 — antecipacao e verificacao de efeito."""
+"""Endpoints do Andar 1: antecipacao e verificacao de efeito."""
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel

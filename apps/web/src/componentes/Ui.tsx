@@ -1,6 +1,6 @@
 /**
  * Peças reutilizadas pelas telas. Existem para que o padrão visual seja
- * herdado, e não recopiado — regra que muda aqui muda em todo lugar.
+ * herdado, e não recopiado: regra que muda aqui muda em todo lugar.
  */
 
 type Filho = { children: React.ReactNode }
@@ -157,7 +157,7 @@ export function Vazio({ children }: Filho) {
   )
 }
 
-/** Indicador "ao vivo" — ponto ciano pulsando. */
+/** Indicador "ao vivo": ponto ciano pulsando. */
 export function AoVivo({ ativo, rotulo }: { ativo: boolean; rotulo: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs">

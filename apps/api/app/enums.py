@@ -17,7 +17,7 @@ class Perfil(StrEnum):
 
 
 class NivelIdentidade(StrEnum):
-    """Secao 5.1 — dado pessoal nunca sai no nivel anonimo."""
+    """Secao 5.1: dado pessoal nunca sai no nivel anonimo."""
 
     ANONIMO = "anonimo"
     RECONHECIDO = "reconhecido"
@@ -68,7 +68,7 @@ class SituacaoCaso(StrEnum):
 
 
 class ContratoResolucao(StrEnum):
-    """Secao 5.5 — o laco do Andar 2."""
+    """Secao 5.5: o laco do Andar 2."""
 
     ABERTO = "aberto"
     CONFIRMADO = "confirmado"
@@ -95,7 +95,7 @@ class Direcao(StrEnum):
 
 
 class EfeitoAntecipacao(StrEnum):
-    """Secao 4.4 — a hipotese verificavel de toda mensagem proativa."""
+    """Secao 4.4: a hipotese verificavel de toda mensagem proativa."""
 
     PENDENTE = "pendente"
     CONFIRMADO = "confirmado"  # nao abriu atendimento: o atendimento foi evitado

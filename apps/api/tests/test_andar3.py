@@ -1,4 +1,4 @@
-"""Testes do Andar 3 — causa-raiz, ordens de correcao e auditoria a frio.
+"""Testes do Andar 3: causa-raiz, ordens de correcao e auditoria a frio.
 
 O que precisa ficar provado: a ordem carrega previsao numerica, a
 previsao e conferida na data marcada, e a hipotese que falha e
@@ -114,7 +114,7 @@ async def test_previsao_e_conservadora(db):
 
 
 # --------------------------------------------------------------------------
-# Medicao — o laco
+# Medicao: o laco
 # --------------------------------------------------------------------------
 
 
@@ -232,14 +232,14 @@ async def test_poucos_casos_nao_viram_causa(db, monkeypatch):
 def test_concentracao_em_um_curso(db):
     cluster = _cluster(db)
     curso, concentracao = agrupamento.concentracao_em_um_curso(cluster, db)
-    # Casos sem participante nao tem curso — a funcao devolve vazio em vez
+    # Casos sem participante nao tem curso: a funcao devolve vazio em vez
     # de inventar concentracao.
     assert concentracao == 0.0
     assert curso == ""
 
 
 # --------------------------------------------------------------------------
-# Auditoria de jornada — partida a frio
+# Auditoria de jornada: partida a frio
 # --------------------------------------------------------------------------
 
 

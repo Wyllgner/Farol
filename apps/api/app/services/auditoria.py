@@ -2,7 +2,7 @@
 
 Toda interacao e registrada: entrada, classificacao, fontes recuperadas,
 confianca calculada, decisao de triagem, resposta gerada, acao do servidor.
-Rastreabilidade completa — requisito nao negociavel em ambiente judiciario.
+Rastreabilidade completa: requisito nao negociavel em ambiente judiciario.
 
 A tabela e append-only imposto por trigger no banco: nem este modulo nem
 um bug em outro lugar conseguem reescrever o que ja foi registrado.

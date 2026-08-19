@@ -1,4 +1,4 @@
-"""Console de Demonstracao — controle do mundo ficticio.
+"""Console de Demonstracao: controle do mundo ficticio.
 
 Todos os disparos aqui reutilizam as funcoes de producao. O console
 existe para dar um botao a elas, nao para criar um caminho paralelo.

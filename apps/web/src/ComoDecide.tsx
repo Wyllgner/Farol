@@ -126,7 +126,7 @@ export default function ComoDecide() {
           <strong className="text-texto">
             {Math.round(e.taxa_para_liberar * 100)}% de acerto
           </strong>{' '}
-          em ao menos {e.amostra_minima} revisões. Não pedimos confiança —
+          em ao menos {e.amostra_minima} revisões. Não pedimos confiança: 
           pedimos observação.
         </p>
 

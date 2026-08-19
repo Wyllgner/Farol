@@ -2,7 +2,7 @@
 
 O que se prova aqui: uma afirmacao verificavel que nao consta na fonte
 citada derruba a resposta. Numeros, prazos e enderecos sao o que a pessoa
-vai executar — uma frase generica errada irrita, um prazo errado faz
+vai executar: uma frase generica errada irrita, um prazo errado faz
 alguem perder o curso.
 """
 

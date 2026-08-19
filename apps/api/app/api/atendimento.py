@@ -1,4 +1,4 @@
-"""Endpoint de atendimento — o motor unico, independente de canal."""
+"""Endpoint de atendimento: o motor unico, independente de canal."""
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field

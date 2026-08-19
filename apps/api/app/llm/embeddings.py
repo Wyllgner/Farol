@@ -5,8 +5,8 @@ deve tocar o resto do motor, e a dimensao do vetor e uma decisao de schema
 (muda-la exige regerar a migration do chunk).
 
 Provedores:
-  openai — text-embedding-3-small, mesma chave do LLM. 1536 dimensoes.
-  local  — sentence-transformers offline, sem chave e sem custo. 768 dimensoes.
+  openai: text-embedding-3-small, mesma chave do LLM. 1536 dimensoes.
+  local: sentence-transformers offline, sem chave e sem custo. 768 dimensoes.
 """
 
 from app.config import settings

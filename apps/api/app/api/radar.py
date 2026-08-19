@@ -1,4 +1,4 @@
-"""Radar de Causas — endpoints do Andar 3."""
+"""Radar de Causas: endpoints do Andar 3."""
 
 import uuid
 

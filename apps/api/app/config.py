@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     web_origin: str = "http://localhost:5173"
 
     # Modo Ensaio (F30): o motor gera a resposta mas nao envia; servidor aprova.
-    # Comeca ligado por decisao de produto — nenhuma instituicao liga no dia 1
+    # Comeca ligado por decisao de produto: nenhuma instituicao liga no dia 1
     # um sistema que fala em nome da Casa.
     modo_ensaio: bool = True
 
