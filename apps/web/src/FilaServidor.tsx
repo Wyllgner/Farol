@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { IconeTiques } from './componentes/Icones'
 import {
   Botao,
   CabecalhoConteudo,
@@ -657,54 +658,106 @@ const NOME_DO_CANAL: Record<string, string> = {
   telefone: 'Telefone',
 }
 
+/** Hora curta, como o app mostra no canto do balão. */
+function horaDe(iso: string | null): string {
+  if (!iso) return ''
+  return new Date(iso).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/** Dia legível para o separador entre blocos de conversa. */
+function diaDe(iso: string | null): string {
+  if (!iso) return ''
+  const data = new Date(iso)
+  const hoje = new Date()
+  const ontem = new Date(hoje)
+  ontem.setDate(hoje.getDate() - 1)
+  const mesmoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString()
+  if (mesmoDia(data, hoje)) return 'HOJE'
+  if (mesmoDia(data, ontem)) return 'ONTEM'
+  return data.toLocaleDateString('pt-BR')
+}
+
 /**
- * A conversa consolidada, do começo para o fim.
+ * A conversa consolidada, na aparência do canal em que ela aconteceu.
  *
- * Alinhada como um chat de propósito: o servidor precisa reconhecer num
- * relance quem disse o quê, e uma lista de parágrafos iguais obrigaria a
- * ler rótulo por rótulo.
+ * O servidor está lendo por cima do ombro do participante, e reproduzir a
+ * tela que a pessoa viu é o que torna a leitura imediata: quem escreveu o
+ * quê se resolve pela cor do balão, sem ler rótulo. Por isso o lado segue
+ * o app, e não o ponto de vista de quem atende — o participante fica à
+ * direita, em verde, exatamente como no celular dele.
  *
- * O canal aparece em cada turno porque a transcrição é unificada: a mesma
- * pessoa começa no widget e continua no WhatsApp, e saber onde cada coisa
- * foi dita muda como o servidor responde.
+ * A paleta do canal é usada aqui de propósito, fora do espelho. Ela
+ * continua sendo do canal e não do produto: é a mesma conversa, mostrada
+ * para outra pessoa.
  */
 function Transcricao({ turnos }: { turnos: Turno[] }) {
   return (
-    <ol className="space-y-2.5">
+    <div className="zap-papel space-y-1.5 rounded-[--radius-controle] border border-borda p-3">
       {turnos.map((t, i) => {
         const daPessoa = t.quem === 'participante'
+        const anterior = turnos[i - 1]
+        // Separador de data só quando o dia vira, como no app. Repetido em
+        // toda mensagem, ele viraria ruído em vez de referência.
+        const mudouODia =
+          !anterior || diaDe(anterior.em) !== diaDe(t.em)
+        // O canal só aparece quando muda. A transcrição é unificada, e uma
+        // bolha de WhatsApp exibindo mensagem do widget do AVA seria uma
+        // afirmação falsa sobre onde a conversa aconteceu.
+        const mudouOCanal = !anterior || anterior.canal !== t.canal
+
         return (
-          <li
-            key={`${t.em ?? i}-${i}`}
-            className={daPessoa ? 'pr-8' : 'pl-8'}
-          >
-            <div
-              className={[
-                'rounded-[--radius-card] border px-3 py-2',
-                daPessoa
-                  ? 'border-borda bg-superficie-alt'
-                  : 'border-azul-100 bg-azul-100/40',
-              ].join(' ')}
-            >
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-texto-suave">
-                <span className="font-semibold text-texto">
-                  {daPessoa ? 'Participante' : 'FAROL'}
+          <div key={`${t.em ?? i}-${i}`}>
+            {mudouODia && (
+              <p className="flex justify-center py-1.5">
+                <span className="rounded-md bg-white/95 px-2.5 py-1 text-[0.7rem] font-medium text-zap-hora shadow-sm">
+                  {diaDe(t.em)}
                 </span>
-                <span>· {NOME_DO_CANAL[t.canal] ?? t.canal}</span>
-                {t.em && <span>· {new Date(t.em).toLocaleString('pt-BR')}</span>}
-                {/* Proativa na fila ainda não foi lida por ninguém. Sem esta
-                    marca, o servidor supõe que a pessoa já recebeu a
-                    orientação e responde como se ela tivesse ignorado. */}
-                {!t.entregue && <Etiqueta tom="alerta">não entregue</Etiqueta>}
               </p>
-              <p className="mt-1 text-sm whitespace-pre-line text-texto">
-                {t.texto}
+            )}
+            {mudouOCanal && (
+              <p className="flex justify-center py-1.5">
+                <span className="rounded-md bg-zap-aviso px-2.5 py-1 text-[0.7rem] font-medium text-zap-aviso-texto shadow-sm">
+                  {NOME_DO_CANAL[t.canal] ?? t.canal}
+                </span>
               </p>
+            )}
+
+            <div className={daPessoa ? 'flex justify-end' : 'flex justify-start'}>
+              <div
+                className={[
+                  'relative max-w-[85%] rounded-lg px-2.5 pt-1.5 pb-1 text-[0.925rem] leading-snug text-zap-texto shadow-sm',
+                  daPessoa
+                    ? 'zap-rabo-enviada mr-2 rounded-tr-none bg-zap-enviada'
+                    : 'zap-rabo-recebida ml-2 rounded-tl-none bg-zap-recebida',
+                ].join(' ')}
+              >
+                <p className="break-words whitespace-pre-wrap">{t.texto}</p>
+
+                {/* A hora corre junto do texto, como no app: ocupa o fim da
+                    última linha quando cabe, e desce sozinha quando não cabe. */}
+                <span className="float-right mt-0.5 ml-2 flex translate-y-0.5 items-center gap-1 text-[0.6875rem] text-zap-hora">
+                  {horaDe(t.em)}
+                  {/* Proativa na fila ainda não foi lida por ninguém. Sem
+                      esta marca o servidor supõe que a pessoa recebeu a
+                      orientação e responde como se ela a tivesse ignorado. */}
+                  {!t.entregue ? (
+                    <span className="font-semibold text-alerta">na fila</span>
+                  ) : (
+                    !daPessoa && (
+                      <IconeTiques className="h-3 w-4 text-zap-tique" titulo="Lida" />
+                    )
+                  )}
+                </span>
+                <span className="clear-both block" />
+              </div>
             </div>
-          </li>
+          </div>
         )
       })}
-    </ol>
+    </div>
   )
 }
 
