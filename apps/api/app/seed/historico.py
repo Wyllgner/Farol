@@ -32,6 +32,7 @@ from app.enums import (
     Categoria,
     ContratoResolucao,
     DecisaoTriagem,
+    Direcao,
     EfeitoAntecipacao,
     SituacaoCaso,
     SituacaoOrdem,
@@ -41,6 +42,8 @@ from app.models import (
     Caso,
     Conversa,
     EventoProativo,
+    LogAuditoria,
+    Mensagem,
     OrdemCorrecao,
     Participante,
 )
@@ -221,6 +224,93 @@ ORDENS = [
     },
 ]
 
+# Conversa que antecede o escalonamento, por categoria.
+#
+# Ela existe para os casos que FICAM na fila. O dossie promete transcricao
+# consolidada, e um caso historico sem conversa mostrava um dossie pela
+# metade justamente na tela que a demonstracao abre para provar que o
+# servidor recebe o caso inteiro.
+#
+# As falas do FAROL ficam em constantes porque sao longas: dentro do dict
+# elas virariam concatenacao implicita, que e onde nasce o bug classico de
+# esquecer uma virgula e colar duas mensagens numa so.
+_SAUDACAO = (
+    "Oi! Aqui e o FAROL, da SECOEAD. Ajudo com acesso ao AVA, senha, prazos, "
+    "webconferencia e certificado. O que voce precisa?"
+)
+_PRAZO = (
+    "O prazo da atividade final aparece no Relatorio de Progresso do curso, "
+    "junto da lista de pendencias. No seu caso, o prazo ainda esta aberto. "
+    "Quer que eu detalhe o que falta entregar?"
+)
+_CERTIFICADO = (
+    "O certificado e liberado automaticamente quando 75% de frequencia e "
+    "todas as atividades obrigatorias estao concluidas. Confira no Relatorio "
+    "de Progresso qual pendencia impede a liberacao."
+)
+_COORDENACAO = (
+    "Posso ajudar com duvidas sobre acesso, prazos, webconferencia e "
+    "certificado. Se preferir falar com um servidor da SECOEAD, eu encaminho "
+    "seu caso agora."
+)
+_ACOLHIMENTO = (
+    "Boa tarde! Aqui e o FAROL, da SECOEAD. Me conta o que aconteceu que eu "
+    "vejo como ajudar."
+)
+_TRIAGEM_2FA = (
+    "Vamos por partes. O erro aparece antes ou depois de digitar a senha? Se "
+    "for depois, e a verificacao em duas etapas."
+)
+_CODIGO_2FA = (
+    "Esse codigo vem do aplicativo autenticador cadastrado no primeiro "
+    "acesso. Abra o app e use o codigo de 6 digitos que estiver valido no "
+    "momento: ele troca a cada 30 segundos."
+)
+_WEBCONFERENCIA = (
+    "A webconferencia acontece dentro do AVA, na pagina do curso, no modulo "
+    "do encontro. A sala abre 15 minutos antes do horario."
+)
+
+CONVERSAS: dict[Categoria, list[tuple[str, str]]] = {
+    Categoria.PRAZO: [
+        ("participante", "boa tarde"),
+        ("farol", _SAUDACAO),
+        ("participante", "e sobre a atividade final do curso"),
+        ("farol", _PRAZO),
+    ],
+    Categoria.CERTIFICADO: [
+        ("participante", "oi, bom dia"),
+        ("farol", _SAUDACAO),
+        ("participante", "queria saber do meu certificado"),
+        ("farol", _CERTIFICADO),
+    ],
+    Categoria.RECLAMACAO: [
+        ("participante", "preciso falar com alguem da coordenacao"),
+        ("farol", _COORDENACAO),
+    ],
+    Categoria.SENSIVEL: [
+        ("participante", "boa tarde, preciso de uma orientacao"),
+        ("farol", _ACOLHIMENTO),
+    ],
+    Categoria.DOIS_FATORES: [
+        ("participante", "nao estou conseguindo entrar no ava"),
+        ("farol", _TRIAGEM_2FA),
+        ("participante", "depois, ele pede um codigo"),
+        ("farol", _CODIGO_2FA),
+    ],
+    Categoria.WEBCONFERENCIA: [
+        ("participante", "oi"),
+        ("farol", _SAUDACAO),
+        ("participante", "e sobre o encontro ao vivo de hoje"),
+        ("farol", _WEBCONFERENCIA),
+    ],
+}
+
+# Categorias sem conversa propria usam a do assunto mais proximo: escrever
+# seis dialogos para categorias que quase nao escalam seria trabalho para
+# encher o banco, nao para tornar a fila legivel.
+CONVERSA_PADRAO = CONVERSAS[Categoria.CERTIFICADO]
+
 # Perguntas de exemplo por categoria. Ficam no caso para que o Radar
 # tenha texto real para exibir, e nao um registro vazio com contador.
 PERGUNTAS = {
@@ -292,7 +382,14 @@ def _limpar_historico(db) -> dict:
 
     casos = []
     if ids:
-        casos = db.scalars(select(Caso).where(Caso.conversa_id.in_(ids))).all()
+        # Caso com log de auditoria e caso que a operacao real produziu:
+        # apagar dispara SET NULL sobre log_auditoria, que e um UPDATE, e o
+        # trigger de imutabilidade recusa. O vinculo com a conversa cai
+        # sozinho quando ela e apagada, e o caso continua na fila onde deve.
+        com_log = select(LogAuditoria.caso_id).where(LogAuditoria.caso_id.is_not(None))
+        casos = db.scalars(
+            select(Caso).where(Caso.conversa_id.in_(ids), Caso.id.not_in(com_log))
+        ).all()
         for caso in casos:
             db.delete(caso)
         db.flush()
@@ -338,6 +435,126 @@ def _datar(db, tabela: str, registro_id: uuid.UUID, quando: datetime) -> None:
     )
 
 
+def _montar_atendimento(db, *, caso, conversa, participante, quando) -> None:
+    """Grava a conversa que antecede o escalonamento e o dossie do caso.
+
+    O dossie e montado aqui, e nao por dossie.montar, porque este caso
+    nunca passou pelo pipeline: ele nasce escalado. Reproduzir a chamada
+    exigiria fabricar identidade, ancoragem e trechos recuperados, que e
+    mais mentira do que o seed precisa contar. O que a tela le e o formato,
+    e o formato e este.
+    """
+    turnos = CONVERSAS.get(caso.categoria, CONVERSA_PADRAO)
+
+    # A conversa acontece nos minutos que antecedem a pergunta que escalou.
+    inicio = quando - timedelta(minutes=len(turnos) + 1)
+    transcricao = []
+    for passo, (quem, texto) in enumerate(turnos):
+        instante = inicio + timedelta(minutes=passo)
+        mensagem = Mensagem(
+            conversa_id=conversa.id,
+            direcao=Direcao.ENTRADA if quem == "participante" else Direcao.SAIDA,
+            conteudo=texto,
+            entregue_em=instante,
+        )
+        db.add(mensagem)
+        db.flush()
+        _datar(db, "mensagem", mensagem.id, instante)
+        transcricao.append(
+            {
+                "quem": quem,
+                "canal": str(conversa.canal),
+                "texto": texto,
+                "em": instante.isoformat(),
+                "entregue": True,
+            }
+        )
+
+    # A pergunta que escalou fecha a conversa.
+    ultima = Mensagem(
+        conversa_id=conversa.id,
+        direcao=Direcao.ENTRADA,
+        conteudo=caso.pergunta,
+        entregue_em=quando,
+    )
+    db.add(ultima)
+    db.flush()
+    _datar(db, "mensagem", ultima.id, quando)
+    transcricao.append(
+        {
+            "quem": "participante",
+            "canal": str(conversa.canal),
+            "texto": caso.pergunta,
+            "em": quando.isoformat(),
+            "entregue": True,
+        }
+    )
+
+    # Estado real da matricula. Sem ele a fila mostra "Anonimo" e o dossie
+    # perde justamente o que o Andar 2 promete: a resposta e sobre o caso
+    # DAQUELA pessoa, e o servidor precisa ver de quem se trata.
+    hoje = quando.date()
+    cursos = []
+    for matricula in participante.matriculas:
+        prazo = matricula.prazo_pessoal
+        ultimo = matricula.ultimo_acesso
+        cursos.append(
+            {
+                "curso": matricula.curso.titulo,
+                "progresso_pct": float(matricula.progresso),
+                "nunca_acessou": ultimo is None,
+                # O caso e do passado e o ultimo acesso pode ser posterior
+                # a ele: a subtracao crua dava "ultimo acesso ha -3 dias" na
+                # tela do servidor.
+                "dias_desde_ultimo_acesso": (
+                    None if ultimo is None else max(0, (quando - ultimo).days)
+                ),
+                "dois_fatores_configurado": matricula.dois_fatores_configurado,
+                "prazo_pessoal": prazo.isoformat() if prazo else None,
+                "dias_ate_o_prazo": None if prazo is None else (prazo - hoje).days,
+                "situacao_certificado": str(matricula.situacao_certificado),
+                "etapa_na_jornada": None,
+            }
+        )
+
+    primeiro_nome = participante.nome.split()[0]
+    estado_do_participante = {
+        # Minimizacao (secao 13): so o primeiro nome, como em producao.
+        "primeiro_nome": primeiro_nome,
+        "perfil": str(participante.perfil),
+        "cursos": cursos,
+    }
+    if caso.sensivel:
+        resumo = (
+            f"{primeiro_nome}: assunto sensivel ({caso.categoria}), "
+            f"encaminhado por politica."
+        )
+        motivo = "categoria sensivel: escala sempre, independentemente da confianca"
+    else:
+        resumo = f"{primeiro_nome}: {caso.categoria}, sem fonte suficiente para responder."
+        motivo = f"confianca baixa ({float(caso.confianca):.2f}) e sem fonte que sustente"
+
+    caso.dossie = {
+        "resumo": resumo,
+        "motivo_do_escalonamento": motivo,
+        "orientacao_padrao_falhou": caso.orientacao_padrao_falhou,
+        "categoria": str(caso.categoria),
+        "sensivel": caso.sensivel,
+        "nivel_identidade": "reconhecido",
+        "pergunta": caso.pergunta,
+        "transcricao": transcricao,
+        "estado_do_participante": estado_do_participante,
+        "fontes_consultadas": [],
+        "confianca": float(caso.confianca),
+        "ancoragem": {
+            "intacta": False,
+            "motivo": "afirmacao nao sustentada pelas fontes: nao gerado",
+        },
+        "rascunho_sugerido": "",
+        "montado_em": quando.isoformat(),
+    }
+
+
 def semear_historico() -> dict:
     agora = datetime.now(UTC)
 
@@ -364,7 +581,12 @@ def semear_historico() -> dict:
             conversa = Conversa(
                 participante_id=p.id,
                 canal=Canal.WHATSAPP,
-                handle_canal=p.telefone or f"anon-{p.id}",
+                # Handle proprio, que NUNCA colide com o do canal real.
+                # Com o telefone puro, a primeira mensagem que a pessoa
+                # mandasse ao vivo caia nesta conversa: o caso novo nascia
+                # dentro do historico, e a proxima semeadura tentava apagar
+                # um caso que ja tinha log de auditoria.
+                handle_canal=f"historico:{p.telefone or p.id}",
                 contexto_pagina=MARCADOR,
             )
             db.add(conversa)
@@ -448,6 +670,19 @@ def semear_historico() -> dict:
                     db.flush()
                     _datar(db, "caso", caso.id, quando)
                     total_casos += 1
+
+                    # Só quem fica na fila ganha conversa e dossiê. Montar
+                    # transcrição para os 600 casos encerrados encheria o
+                    # banco de texto que ninguém vai abrir; a tela que
+                    # precisa do dossiê é a fila.
+                    if situacao is SituacaoCaso.ESCALADO:
+                        _montar_atendimento(
+                            db,
+                            caso=caso,
+                            conversa=conversas[participante.id],
+                            participante=participante,
+                            quando=quando,
+                        )
 
             # --- Andar 1: mensagens proativas com hipotese ja verificada ---
             entregues = PROATIVAS[semana]
