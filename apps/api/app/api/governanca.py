@@ -1,6 +1,7 @@
 """Governanca: Modo Ensaio, indicadores e transparencia de decisao."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -9,8 +10,21 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app.enums import Categoria, ContratoResolucao, EfeitoAntecipacao, SituacaoCaso
-from app.models import Caso, DocumentoConhecimento, EventoProativo, LogAuditoria
+from app.enums import (
+    Categoria,
+    ContratoResolucao,
+    DecisaoTriagem,
+    EfeitoAntecipacao,
+    SituacaoCaso,
+    SituacaoOrdem,
+)
+from app.models import (
+    Caso,
+    DocumentoConhecimento,
+    EventoProativo,
+    LogAuditoria,
+    OrdemCorrecao,
+)
 from app.services import antecipacao, ensaio, fila, gatilhos, ordem
 from app.services.triagem import CONFIANCA_ALTA, CONFIANCA_MEDIA, TEXTO_RECUSA
 
@@ -82,7 +96,7 @@ def revisar(caso_id: str, dados: Revisao, db: Session = Depends(get_db)) -> dict
 
 
 # --------------------------------------------------------------------------
-# Indicadores — a metrica invertida
+# Indicadores: a metrica invertida
 # --------------------------------------------------------------------------
 
 
@@ -95,12 +109,18 @@ def indicadores(db: Session = Depends(get_db)) -> dict:
     sendo eliminadas.
     """
     total_casos = db.scalar(select(func.count(Caso.id))) or 0
+    # Escalar nao e resolver sem humano. O filtro por decisao existe
+    # porque um caso escalado tambem termina ENCERRADO depois que o
+    # servidor o atende: conta-lo aqui creditaria ao FAROL um trabalho
+    # que uma pessoa fez, e esta e justamente a metrica que a banca vai
+    # querer conferir.
     resolvidos_sem_humano = (
         db.scalar(
             select(func.count(Caso.id)).where(
                 Caso.situacao.in_([SituacaoCaso.RESPONDIDO, SituacaoCaso.ENCERRADO]),
                 Caso.em_ensaio.is_(False),
                 Caso.decisao_triagem.is_not(None),
+                Caso.decisao_triagem != DecisaoTriagem.ESCALA,
             )
         )
         or 0
@@ -225,4 +245,147 @@ def como_decide(db: Session = Depends(get_db)) -> dict:
             "geracao": settings.llm_model_geracao,
             "modo_ensaio": settings.modo_ensaio,
         },
+    }
+
+
+# --------------------------------------------------------------------------
+# Series: a curva, nao o instante
+# --------------------------------------------------------------------------
+
+
+@router.get("/indicadores/series")
+def series(semanas: int = 12, db: Session = Depends(get_db)) -> dict:
+    """As mesmas metricas do painel, ao longo do tempo.
+
+    O numero de hoje diz onde estamos; so a serie diz para onde estamos
+    indo, e a tese do FAROL e inteira sobre direcao: o painel tem que
+    DESCER. Um cartao com "737 casos" nao consegue afirmar isso.
+
+    Tudo aqui e agregado por consulta sobre as tabelas de operacao. Nao
+    ha valor escrito na tela: se a curva subir, o painel mostra subindo.
+    """
+    semanas = max(4, min(52, semanas))
+    agora = datetime.now(UTC)
+
+    # A serie termina na ultima semana FECHADA. A semana em curso tem
+    # dois dias de dado onde as outras tem sete, e plotada ao lado delas
+    # ela desenha uma queda que nao aconteceu: seria o proprio painel
+    # produzindo a evidencia que o produto promete medir. O movimento de
+    # hoje aparece nos cartoes, que sao contadores, nao tendencia.
+    dias_desde_segunda = agora.weekday()
+    fim = (agora - timedelta(days=dias_desde_segunda)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    inicio = fim - timedelta(weeks=semanas)
+
+    def indice(quando: datetime) -> int | None:
+        """Em qual balde semanal esta data cai. None se estiver fora."""
+        if quando is None:
+            return None
+        if quando.tzinfo is None:
+            quando = quando.replace(tzinfo=UTC)
+        if quando < inicio or quando >= fim:
+            return None
+        return min(semanas - 1, int((quando - inicio).days // 7))
+
+    rotulos = [
+        (inicio + timedelta(weeks=i)).strftime("%d/%m") for i in range(semanas)
+    ]
+
+    # --- volume semanal: o que chegou x o que foi evitado ---
+    chegaram = [0] * semanas
+    resolvidos = [0] * semanas
+    escalados = [0] * semanas
+    for criado_em, decisao in db.execute(
+        select(Caso.criado_em, Caso.decisao_triagem).where(
+            Caso.criado_em >= inicio, Caso.criado_em < fim
+        )
+    ).all():
+        i = indice(criado_em)
+        if i is None:
+            continue
+        chegaram[i] += 1
+        if decisao is DecisaoTriagem.ESCALA:
+            escalados[i] += 1
+        elif decisao is not None:
+            resolvidos[i] += 1
+
+    evitados = [0] * semanas
+    refutados = [0] * semanas
+    for enviado_em, efeito in db.execute(
+        select(EventoProativo.enviado_em, EventoProativo.efeito).where(
+            EventoProativo.enviado_em.is_not(None)
+        )
+    ).all():
+        i = indice(enviado_em)
+        if i is None:
+            continue
+        if efeito == EfeitoAntecipacao.CONFIRMADO:
+            evitados[i] += 1
+        elif efeito == EfeitoAntecipacao.REFUTADO:
+            refutados[i] += 1
+
+    # --- volume por categoria: onde a queda aconteceu ---
+    por_categoria: dict[str, list[int]] = {}
+    for criado_em, categoria in db.execute(
+        select(Caso.criado_em, Caso.categoria).where(
+            Caso.criado_em >= inicio, Caso.criado_em < fim
+        )
+    ).all():
+        i = indice(criado_em)
+        if i is None:
+            continue
+        serie = por_categoria.setdefault(str(categoria), [0] * semanas)
+        serie[i] += 1
+
+    # So as quatro categorias de maior volume viram linha. As demais somam
+    # em "outras": uma nona cor nao existe, e um grafico com doze linhas
+    # nao e um grafico, e uma meada.
+    ranking = sorted(por_categoria.items(), key=lambda kv: sum(kv[1]), reverse=True)
+    destaques = ranking[:4]
+    resto = ranking[4:]
+    categorias = [{"categoria": nome, "valores": v} for nome, v in destaques]
+    if resto:
+        outras = [sum(v[i] for _, v in resto) for i in range(semanas)]
+        categorias.append({"categoria": "outras", "valores": outras})
+
+    # --- ordens: previsao contra medicao ---
+    ordens_medidas = [
+        {
+            "acao": o.acao,
+            "previsto": o.previsao_queda_mensal,
+            "medido": o.resultado_medido,
+            "acertou": o.situacao is SituacaoOrdem.CONFIRMADA,
+        }
+        for o in db.scalars(
+            select(OrdemCorrecao)
+            .where(OrdemCorrecao.resultado_medido.is_not(None))
+            .order_by(OrdemCorrecao.criado_em)
+        ).all()
+    ]
+
+    # --- destino dos casos: para onde a triagem mandou cada um ---
+    destino = dict(
+        db.execute(
+            select(Caso.decisao_triagem, func.count(Caso.id))
+            .where(Caso.decisao_triagem.is_not(None))
+            .group_by(Caso.decisao_triagem)
+        ).all()
+    )
+
+    return {
+        "semanas": rotulos,
+        "ate": fim.date().isoformat(),
+        "volume": {
+            "chegaram": chegaram,
+            "evitados": evitados,
+            "refutados": refutados,
+            "resolvidos_sem_humano": resolvidos,
+            "escalados": escalados,
+        },
+        "por_categoria": categorias,
+        "ordens_medidas": ordens_medidas,
+        "destino_dos_casos": [
+            {"decisao": str(d), "total": t} for d, t in destino.items()
+        ],
     }
