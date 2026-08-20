@@ -200,7 +200,13 @@ def _semear_participantes(db, cursos: list[Curso], arestas, hoje: date) -> dict:
             email=f"{primeiro}.{ultimo}@exemplo.jus.br",
             telefone=f"+5569{90000000 + indice:08d}",
             perfil=perfil,
-            canal_preferido=Canal.WIDGET_AVA if indice % 9 == 0 else Canal.WHATSAPP,
+            # indice 0 e a Dra. Ana Beatriz, a personagem da demonstracao,
+            # e a demonstracao acontece no espelho do WhatsApp. Deslocar o
+            # resto em 1 mantem a mesma proporcao de widget sem tira-la do
+            # canal onde ela e apresentada.
+            canal_preferido=(
+                Canal.WIDGET_AVA if indice > 0 and indice % 9 == 0 else Canal.WHATSAPP
+            ),
             nivel_identidade=nivel,
             saldo_atencao=4,
             aceita_avisos=indice % 17 != 0,  # alguns ja optaram por nao receber
