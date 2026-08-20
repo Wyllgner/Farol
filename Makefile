@@ -1,4 +1,5 @@
-.PHONY: setup db dev api web migrate revision seed reset test lint
+.PHONY: setup db dev api web migrate revision seed reset test lint \
+        token build-prod prod prod-seed prod-logs prod-parar
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -44,3 +45,31 @@ lint:
 reset: ## Apaga o banco, recria e repopula
 	docker compose -f infra/docker-compose.yml down -v
 	@$(MAKE) seed
+
+# --------------------------------------------------------------------------
+# Producao
+# --------------------------------------------------------------------------
+
+COMPOSE_PROD := docker compose -f infra/docker-compose.prod.yml --env-file .env.producao
+
+token: ## Gera um token forte para FAROL_ADMIN_TOKEN / FAROL_SAL_AUDITORIA
+	@python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+build-prod: ## Constroi a imagem (front dentro da API)
+	@test -f .env.producao || (echo "Falta .env.producao: cp .env.producao.example .env.producao" && exit 1)
+	$(COMPOSE_PROD) build
+
+prod: build-prod ## Sobe banco, API e TLS. Migrations rodam antes de abrir a porta
+	$(COMPOSE_PROD) up -d db
+	$(COMPOSE_PROD) run --rm --entrypoint alembic api upgrade head
+	$(COMPOSE_PROD) up -d
+	@echo "No ar em https://$$(grep '^DOMINIO=' .env.producao | cut -d= -f2)"
+
+prod-seed: ## Popula o mundo ficticio (uma vez, apos o primeiro prod)
+	$(COMPOSE_PROD) run --rm --entrypoint python api -m app.seed
+
+prod-logs: ## Acompanha os logs
+	$(COMPOSE_PROD) logs -f --tail=100
+
+prod-parar: ## Derruba os containers (o volume do banco fica)
+	$(COMPOSE_PROD) down

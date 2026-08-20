@@ -127,10 +127,19 @@ def identificar_ator(request: Request) -> str:
     atores, contar reincidencia) e descarta o que ela nao precisa
     (identificar a pessoa fisica). LGPD por construcao, nao por promessa.
     """
-    encaminhado = request.headers.get("x-forwarded-for", "")
-    bruto = encaminhado.split(",")[0].strip() if encaminhado else (
-        request.client.host if request.client else "desconhecido"
-    )
+    bruto = request.client.host if request.client else "desconhecido"
+
+    # X-Forwarded-For e escrito pelo cliente e so vira verdade quando ha um
+    # proxy reverso reescrevendo-o. Confiar nele sem proxy entrega o limite
+    # por origem de bandeja: bastaria mandar um cabecalho diferente a cada
+    # requisicao para nunca ser contado duas vezes. Por isso a leitura
+    # depende de CONFIAR_PROXY, e o valor usado e o **ultimo** da lista, que
+    # e o que o proxy imediato acrescentou; os anteriores o cliente pode ter
+    # inventado.
+    if settings.confiar_proxy:
+        encaminhado = request.headers.get("x-forwarded-for", "")
+        if encaminhado:
+            bruto = encaminhado.split(",")[-1].strip()
     digest = hashlib.sha256(f"{bruto}{settings.sal_auditoria}".encode()).hexdigest()
     return f"anon:{digest[:12]}"
 
@@ -212,7 +221,12 @@ limitador_geral = LimitadorDeTaxa(settings.limite_req_min, 60)
 limitador_llm = LimitadorDeTaxa(settings.limite_llm_min, 60)
 
 # Rotas que custam dinheiro a cada chamada: sao as que chamam o provedor.
-ROTAS_COM_CUSTO = ("/atendimento", "/search", "/widget/mensagem", "/webhook/whatsapp")
+ROTAS_COM_CUSTO = (
+    "/api/atendimento",
+    "/api/search",
+    "/api/widget/mensagem",
+    "/api/webhook/whatsapp",
+)
 
 
 class TetoDeCusto:

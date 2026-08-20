@@ -59,6 +59,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FAROL_SAL_AUDITORIA", "SAL_AUDITORIA", "sal_auditoria"),
     )
 
+    # Ligar somente quando houver um proxy reverso na frente (a hospedagem,
+    # o Caddy, o nginx). Ver a nota em seguranca.identificar_ator: com isto
+    # desligado, X-Forwarded-For e ignorado.
+    confiar_proxy: bool = False
+
     # Hospedeiros aceitos no cabecalho Host, separados por virgula.
     # Vazio = qualquer um (util em dev e atras de proxy confiavel).
     hosts_confiaveis: str = ""

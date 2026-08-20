@@ -1,0 +1,23 @@
+# TLS automatico: o Caddy pede e renova o certificado sozinho, desde que o
+# dominio ja aponte para este host. Nada de certificado manual vencendo no
+# dia da apresentacao.
+{$DOMINIO} {
+	encode gzip zstd
+
+	# O espelho do WhatsApp fala por WebSocket na mesma origem; o Caddy
+	# repassa o upgrade sem configuracao extra.
+	reverse_proxy api:8000
+
+	header {
+		# O backend ja envia os seus; estes cobrem tambem o que o Caddy
+		# serve direto (paginas de erro, redirecionamentos).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -156,3 +156,47 @@ def test_estourar_o_teto_degrada_em_vez_de_quebrar(monkeypatch):
     monkeypatch.setattr(seguranca, "teto_llm", TetoDeCusto(teto=0))
     monkeypatch.setattr(seguranca.teto_llm, "consumir", lambda: False)
     assert provider_ativo().nome == "fallback"
+
+
+# --------------------------------------------------------------------------
+# Identificacao do ator atras de proxy
+# --------------------------------------------------------------------------
+
+
+class _RequisicaoComIp:
+    def __init__(self, ip: str, encaminhado: str | None = None) -> None:
+        class _Cliente:
+            host = ip
+
+        self.client = _Cliente()
+        self.headers = {"x-forwarded-for": encaminhado} if encaminhado else {}
+
+
+def test_sem_proxy_o_cabecalho_forjado_e_ignorado(monkeypatch):
+    """Confiar em X-Forwarded-For sem proxy entrega o limite de bandeja."""
+    from app.seguranca import identificar_ator
+
+    monkeypatch.setattr(settings, "confiar_proxy", False, raising=False)
+    real = identificar_ator(_RequisicaoComIp("203.0.113.7"))
+    forjado = identificar_ator(_RequisicaoComIp("203.0.113.7", "1.2.3.4"))
+    assert real == forjado
+
+
+def test_com_proxy_vale_o_ultimo_da_lista(monkeypatch):
+    """Os anteriores ao ultimo podem ter sido inventados pelo cliente."""
+    from app.seguranca import identificar_ator
+
+    monkeypatch.setattr(settings, "confiar_proxy", True, raising=False)
+    monkeypatch.setattr(settings, "sal_auditoria", "sal", raising=False)
+    a = identificar_ator(_RequisicaoComIp("10.0.0.1", "1.2.3.4, 198.51.100.9"))
+    b = identificar_ator(_RequisicaoComIp("10.0.0.1", "9.9.9.9, 198.51.100.9"))
+    assert a == b
+
+
+def test_ator_nunca_carrega_o_ip_em_texto_claro(monkeypatch):
+    from app.seguranca import identificar_ator
+
+    monkeypatch.setattr(settings, "confiar_proxy", False, raising=False)
+    ator = identificar_ator(_RequisicaoComIp("203.0.113.7"))
+    assert "203.0.113.7" not in ator
+    assert ator.startswith("anon:")

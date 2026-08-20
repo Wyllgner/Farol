@@ -55,6 +55,34 @@ Outros alvos: `make migrate`, `make test`, `make lint`, `make reset`.
 
 ---
 
+## Subindo em produção
+
+Um host, um domínio, um comando. A imagem carrega o front construído dentro
+da API, que o serve: **uma origem só**, sem CORS a liberar, sem URL de API para
+configurar no build e com o WebSocket do espelho no mesmo certificado.
+
+```bash
+cp .env.producao.example .env.producao
+make token            # gere um valor para FAROL_ADMIN_TOKEN e outro para FAROL_SAL_AUDITORIA
+# preencha .env.producao (domínio, senha do banco, os dois tokens, OPENAI_API_KEY)
+make prod             # constrói, migra e sobe: banco + API + TLS automático
+make prod-seed        # uma vez, para popular o mundo fictício
+```
+
+Pré-requisitos: um host com Docker e um domínio já apontado para ele — o Caddy
+emite e renova o certificado sozinho. `make prod-logs` acompanha, `make prod-parar`
+derruba sem apagar o banco.
+
+O que o `docker-compose.prod.yml` deliberadamente **não** faz: publicar a porta
+do Postgres. O banco fala com a API pela rede interna e não tem porta aberta
+para a internet. O único container exposto é o proxy, em 80 e 443.
+
+Para uma demonstração rápida sem infraestrutura, `make dev` mais um túnel
+(`cloudflared tunnel --url http://localhost:5173`) resolve — mas só enquanto a
+máquina estiver ligada.
+
+---
+
 ## Segurança
 
 A chave do provedor de LLM nunca chega ao navegador, nunca entra no repositório

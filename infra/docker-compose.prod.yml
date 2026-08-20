@@ -1,0 +1,79 @@
+# Producao em um host so: banco, aplicacao e TLS automatico.
+#
+#   cp .env.producao.example .env.producao   (e preencha)
+#   docker compose -f infra/docker-compose.prod.yml --env-file .env.producao up -d --build
+#
+# O que este arquivo deliberadamente NAO faz: publicar a porta do banco.
+# Postgres exposto na internet e a forma mais rapida de perder o banco, e
+# aqui ele nao precisa de porta: fala com a API pela rede interna.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: farol-db-prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-farol}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env.producao}"
+      POSTGRES_DB: ${POSTGRES_DB:-farol}
+    volumes:
+      - farol-pgdata-prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-farol} -d ${POSTGRES_DB:-farol}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: farol-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-farol}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-farol}"
+      AMBIENTE: producao
+      # Sem estes dois o processo se recusa a subir. E o comportamento
+      # desejado: melhor falhar no deploy que ficar exposto.
+      FAROL_ADMIN_TOKEN: "${FAROL_ADMIN_TOKEN:?vazio. gere um com make token}"
+      FAROL_SAL_AUDITORIA: "${FAROL_SAL_AUDITORIA:?vazio. gere um com make token}"
+      WEB_ORIGIN: "${WEB_ORIGIN:?vazio. use a url https do dominio}"
+      HOSTS_CONFIAVEIS: ${HOSTS_CONFIAVEIS:-}
+      CONFIAR_PROXY: "true"
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MODEL_CLASSIFICACAO: ${LLM_MODEL_CLASSIFICACAO:-gpt-5-nano}
+      LLM_MODEL_GERACAO: ${LLM_MODEL_GERACAO:-gpt-5-nano}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      TETO_LLM_DIA: ${TETO_LLM_DIA:-2000}
+      LIMITE_LLM_MIN: ${LIMITE_LLM_MIN:-12}
+      MODO_ENSAIO: ${MODO_ENSAIO:-true}
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  # TLS automatico via Let's Encrypt. E o unico container com porta aberta
+  # para fora: tudo entra por aqui, em https.
+  proxy:
+    image: caddy:2-alpine
+    container_name: farol-proxy
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: "${DOMINIO:?vazio. use o dominio que aponta para este host}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  farol-pgdata-prod:
+  caddy-data:
+  caddy-config:

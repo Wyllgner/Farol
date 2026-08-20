@@ -1,10 +1,12 @@
 import logging
 import time
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api import (
@@ -95,7 +97,7 @@ def _recusar(ator: str, request: Request, motivo: str, espera: str) -> JSONRespo
             rota=request.url.path,
             status_code=429,
             duracao_ms=0,
-            restrita=request.url.path.startswith(("/demo", "/ensaio")),
+            restrita=request.url.path.startswith(("/api/demo", "/api/ensaio")),
         )
     return JSONResponse({"detail": motivo}, status_code=429, headers={"Retry-After": espera})
 
@@ -133,7 +135,7 @@ async def portao(request: Request, call_next):
         resposta.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
     if request.method in METODOS_AUDITADOS:
-        restrita = rota.startswith(("/demo", "/ensaio"))
+        restrita = rota.startswith(("/api/demo", "/api/ensaio"))
         registrar_requisicao(
             ator=ator,
             metodo=request.method,
@@ -158,21 +160,29 @@ async def erro_interno(request: Request, erro: Exception) -> JSONResponse:
     return JSONResponse({"detail": "Erro interno. A equipe foi notificada."}, status_code=500)
 
 
-app.include_router(busca.router)
-app.include_router(atendimento.router)
-app.include_router(canal.router)
-app.include_router(fila.router)
-app.include_router(antecipacao.router)
-app.include_router(radar.router)
-app.include_router(governanca.router)
+# Todas as rotas vivem sob /api, em desenvolvimento e em producao.
+# O front sempre falou com /api; ate aqui quem removia o prefixo era o
+# proxy do servidor de desenvolvimento, que nao existe em producao. Com o
+# prefixo no proprio backend, o caminho e o mesmo nos dois ambientes: uma
+# divergencia a menos para descobrir na hora do deploy.
+PREFIXO = "/api"
+
+app.include_router(busca.router, prefix=PREFIXO)
+app.include_router(atendimento.router, prefix=PREFIXO)
+app.include_router(canal.router, prefix=PREFIXO)
+app.include_router(fila.router, prefix=PREFIXO)
+app.include_router(antecipacao.router, prefix=PREFIXO)
+app.include_router(radar.router, prefix=PREFIXO)
+app.include_router(governanca.router, prefix=PREFIXO)
 
 # Superficie restrita: o Console move o relogio do mundo e reseta o banco.
 # A protecao fica aqui, na inclusao, e nao rota a rota: assim uma rota nova
 # no Console nasce protegida em vez de nascer esquecida.
-app.include_router(demo.router, dependencies=[Depends(exigir_admin)])
+app.include_router(demo.router, prefix=PREFIXO, dependencies=[Depends(exigir_admin)])
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health() -> dict:
     """Diz a verdade sobre o estado do sistema, inclusive quando degradado."""
     try:
@@ -202,3 +212,41 @@ def health() -> dict:
         # dia ja foi gasto e o que permite agir antes de acabar.
         "orcamento_llm": orcamento,
     }
+
+
+# --------------------------------------------------------------------------
+# O front, servido pelo proprio backend
+# --------------------------------------------------------------------------
+#
+# Uma origem so, e nao duas. O front chama caminho relativo, entao nao ha
+# CORS a liberar, nao ha URL de API para configurar no build e o WebSocket
+# do espelho sobe na mesma origem, com o mesmo certificado. Em
+# desenvolvimento esta pasta nao existe e nada disto acontece: quem serve
+# continua sendo o Vite, com recarga a quente.
+
+# .../apps/api/app/main.py -> parents[2] e .../apps
+PASTA_WEB = Path(__file__).resolve().parents[2] / "web" / "dist"
+
+if PASTA_WEB.is_dir():
+    # Os arquivos com hash no nome sao imutaveis por construcao: o hash muda
+    # quando o conteudo muda. Cache longo neles, nenhum no index.html, que e
+    # quem aponta para os demais.
+    app.mount("/assets", StaticFiles(directory=PASTA_WEB / "assets"), name="assets")
+
+    @app.get("/{caminho:path}", include_in_schema=False)
+    def spa(caminho: str) -> FileResponse:
+        """Qualquer rota nao-API devolve o index: o roteamento e do navegador.
+
+        Chega aqui so o que os routers de /api nao atenderam, porque este
+        e o ultimo a ser registrado. Um arquivo real na raiz do build
+        (favicon, manifest) e servido como esta; o resto e navegacao.
+        """
+        arquivo = (PASTA_WEB / caminho).resolve()
+        if caminho and arquivo.is_file() and arquivo.is_relative_to(PASTA_WEB):
+            return FileResponse(arquivo)
+        return FileResponse(
+            PASTA_WEB / "index.html",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    logger.info("servindo o front de %s", PASTA_WEB)
