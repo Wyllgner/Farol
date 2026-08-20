@@ -185,9 +185,15 @@ app.include_router(demo.router, prefix=PREFIXO, dependencies=[Depends(exigir_adm
 @app.get("/api/health")
 def health() -> dict:
     """Diz a verdade sobre o estado do sistema, inclusive quando degradado."""
+    mundo_semeado = None
     try:
         with engine.connect() as conexao:
             conexao.execute(text("SELECT 1"))
+            # Banco no ar mas vazio e um estado que engana: a interface abre
+            # e nao mostra nada, e parece defeito de front. Melhor dizer.
+            mundo_semeado = (
+                conexao.execute(text("SELECT count(*) FROM participante")).scalar_one() > 0
+            )
         banco = "ok"
     except Exception as erro:  # noqa: BLE001, health check nunca deve derrubar o processo
         banco = f"erro: {erro.__class__.__name__}"
@@ -197,6 +203,7 @@ def health() -> dict:
     return {
         "servico": "farol-api",
         "banco": banco,
+        "mundo_semeado": mundo_semeado,
         "llm": provider.nome,
         # Os dois papeis aparecem separados porque podem divergir: a tela
         # "Como o FAROL decide" (secao 7.3) mostra com que modelo cada
