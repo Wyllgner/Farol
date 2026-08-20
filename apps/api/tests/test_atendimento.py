@@ -94,8 +94,8 @@ def doc_certificado(db):
 
 def _instalar(monkeypatch, provider):
     """O provider falso precisa valer tambem dentro da recuperacao."""
-    monkeypatch.setattr(servico, "obter_provider", lambda: provider)
-    monkeypatch.setattr(conhecimento, "obter_provider", lambda: provider)
+    monkeypatch.setattr(servico, "provider_ativo", lambda: provider)
+    monkeypatch.setattr(conhecimento, "provider_ativo", lambda: provider)
 
 
 # --------------------------------------------------------------------------

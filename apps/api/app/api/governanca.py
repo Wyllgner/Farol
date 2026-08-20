@@ -25,6 +25,7 @@ from app.models import (
     LogAuditoria,
     OrdemCorrecao,
 )
+from app.seguranca import exigir_admin
 from app.services import antecipacao, ensaio, fila, gatilhos, ordem
 from app.services.triagem import CONFIANCA_ALTA, CONFIANCA_MEDIA, TEXTO_RECUSA
 
@@ -32,7 +33,11 @@ router = APIRouter(tags=["governanca"])
 
 
 # --------------------------------------------------------------------------
-# Modo Ensaio
+# Modo Ensaio: superficie restrita
+#
+# Liberar uma categoria autoriza o FAROL a falar em nome da Escola sem
+# revisao humana. E a decisao de maior consequencia do produto inteiro,
+# entao ela nao fica atras de um botao publico: exige token.
 # --------------------------------------------------------------------------
 
 
@@ -45,7 +50,7 @@ class Revisao(BaseModel):
     aprovado: bool
 
 
-@router.get("/ensaio")
+@router.get("/ensaio", dependencies=[Depends(exigir_admin)])
 def estado_do_ensaio(db: Session = Depends(get_db)) -> dict:
     linhas = ensaio.desempenho(db)
     return {
@@ -66,7 +71,7 @@ def estado_do_ensaio(db: Session = Depends(get_db)) -> dict:
     }
 
 
-@router.post("/ensaio/{categoria}/liberar")
+@router.post("/ensaio/{categoria}/liberar", dependencies=[Depends(exigir_admin)])
 def liberar(categoria: Categoria, dados: Liberacao, db: Session = Depends(get_db)) -> dict:
     """Libera uma categoria para resposta automatica.
 
@@ -78,14 +83,14 @@ def liberar(categoria: Categoria, dados: Liberacao, db: Session = Depends(get_db
     return {"categoria": str(categoria), "liberada": registro.liberada}
 
 
-@router.post("/ensaio/{categoria}/recolher")
+@router.post("/ensaio/{categoria}/recolher", dependencies=[Depends(exigir_admin)])
 def recolher(categoria: Categoria, dados: Liberacao, db: Session = Depends(get_db)) -> dict:
     ensaio.recolher(db, categoria, dados.servidor)
     db.commit()
     return {"categoria": str(categoria), "liberada": False}
 
 
-@router.post("/ensaio/caso/{caso_id}/revisar")
+@router.post("/ensaio/caso/{caso_id}/revisar", dependencies=[Depends(exigir_admin)])
 def revisar(caso_id: str, dados: Revisao, db: Session = Depends(get_db)) -> dict:
     caso = fila.obter(db, uuid.UUID(caso_id))
     if caso is None:
@@ -194,7 +199,7 @@ def indicadores(db: Session = Depends(get_db)) -> dict:
 # --------------------------------------------------------------------------
 
 
-@router.get("/como-decide")
+@router.get("/como-decide", dependencies=[Depends(exigir_admin)])
 def como_decide(db: Session = Depends(get_db)) -> dict:
     """A politica de decisao, publicada.
 

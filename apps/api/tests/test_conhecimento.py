@@ -80,7 +80,7 @@ async def test_fonte_vencida_nunca_e_recuperada(db, monkeypatch):
     )
 
     monkeypatch.setattr(
-        conhecimento, "obter_provider", lambda: _ProviderFalso(list(vetor_do_vencido))
+        conhecimento, "provider_ativo", lambda: _ProviderFalso(list(vetor_do_vencido))
     )
 
     trechos = await buscar(db, "qualquer pergunta", limite=10)
@@ -97,7 +97,7 @@ async def test_fonte_vigente_com_o_mesmo_vetor_e_recuperada(db, monkeypatch):
     vetor = db.scalar(select(Chunk.vetor).where(Chunk.documento_id == vigente.id))
 
     monkeypatch.setattr(
-        conhecimento, "obter_provider", lambda: _ProviderFalso(list(vetor))
+        conhecimento, "provider_ativo", lambda: _ProviderFalso(list(vetor))
     )
 
     trechos = await buscar(db, "qualquer pergunta", limite=10)
@@ -112,7 +112,7 @@ async def test_trecho_distante_nao_vira_fonte(db, monkeypatch):
     dimensao = len(db.scalar(select(Chunk.vetor)))
     # Vetor ortogonal a tudo que foi indexado.
     monkeypatch.setattr(
-        conhecimento, "obter_provider", lambda: _ProviderFalso([0.0] * (dimensao - 1) + [1.0])
+        conhecimento, "provider_ativo", lambda: _ProviderFalso([0.0] * (dimensao - 1) + [1.0])
     )
 
     trechos = await buscar(db, "assunto sem relacao alguma", limite=10)

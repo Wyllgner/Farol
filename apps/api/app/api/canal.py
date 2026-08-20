@@ -5,14 +5,25 @@ webhook que a Cloud API enviaria. Os dois caem no mesmo motor.
 """
 
 import asyncio
+import hashlib
+import hmac
 import logging
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.channels.base import InboundMessage
 from app.channels.mirror import adaptador, conexoes
+from app.config import settings
 from app.db import SessionLocal, get_db
 from app.enums import Canal
 from app.services import entrega
@@ -148,12 +159,31 @@ def pendentes_do_widget(
 
 
 @router.post("/webhook/whatsapp")
-async def webhook(payload: dict, db: Session = Depends(get_db)) -> dict:
+async def webhook(
+    request: Request,
+    payload: dict,
+    db: Session = Depends(get_db),
+    x_hub_signature_256: str | None = Header(default=None),
+) -> dict:
     """Recebe no formato da Cloud API.
 
     Existe para provar que o contrato e o de producao: trocar o espelho
     pela API oficial nao muda nada daqui para dentro.
+
+    Um webhook aberto e uma rota onde qualquer pessoa injeta mensagem em
+    nome de qualquer participante, e cada injecao gasta credito do
+    provedor. Com WHATSAPP_APP_SECRET definido, so passa payload assinado
+    pela Meta.
     """
+    if settings.whatsapp_app_secret:
+        corpo = await request.body()
+        esperado = "sha256=" + hmac.new(
+            settings.whatsapp_app_secret.encode(), corpo, hashlib.sha256
+        ).hexdigest()
+        if not x_hub_signature_256 or not hmac.compare_digest(esperado, x_hub_signature_256):
+            logger.warning("webhook com assinatura invalida recusado")
+            raise HTTPException(status_code=401, detail="assinatura invalida")
+
     entrada = adaptador.receive(payload)
     saida = await processar(db, entrada)
     db.commit()

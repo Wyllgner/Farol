@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { NaoAutorizado, apiRestrita, jsonRestrito } from './api'
 import {
   Botao,
   CabecalhoConteudo,
@@ -77,8 +78,8 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
 
   const carregar = useCallback(async () => {
     const [e, c] = await Promise.all([
-      fetch('/api/demo/estado').then((r) => r.json()),
-      fetch('/api/demo/cenarios').then((r) => r.json()),
+      jsonRestrito<Estado>('/api/demo/estado'),
+      jsonRestrito<Cenario[]>('/api/demo/cenarios'),
     ])
     setEstado(e)
     setCenarios(c)
@@ -92,7 +93,7 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
     setOcupado(true)
     setAviso(null)
     try {
-      const r = await fetch(`/api/demo/${caminho}`, {
+      const r = await apiRestrita(`/api/demo/${caminho}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: corpo ? JSON.stringify(corpo) : undefined,
@@ -101,8 +102,12 @@ export default function Console({ aoEscolherParticipante, handleAtual }: Props) 
       const dados = await r.json()
       setAviso(mensagem ?? JSON.stringify(dados))
       await carregar()
-    } catch {
-      setAviso('Não consegui concluir a ação.')
+    } catch (erro) {
+      setAviso(
+        erro instanceof NaoAutorizado
+          ? 'Sessão expirada. Recarregue a página e informe o token de novo.'
+          : 'Não consegui concluir a ação.',
+      )
     } finally {
       setOcupado(false)
     }

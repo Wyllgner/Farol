@@ -51,11 +51,11 @@ class Cluster:
 
 async def indexar_pergunta(db: Session, caso: Caso, pergunta: str) -> None:
     """Guarda a pergunta e seu vetor no momento do atendimento."""
-    from app.llm import obter_provider
+    from app.llm import provider_ativo
 
     caso.pergunta = pergunta
     try:
-        caso.vetor_pergunta = (await obter_provider().embutir([pergunta]))[0]
+        caso.vetor_pergunta = (await provider_ativo().embutir([pergunta]))[0]
     except Exception:  # noqa: BLE001
         # Sem vetor o caso apenas nao entra na analise de causa-raiz.
         # Derrubar o atendimento por causa disso seria desproporcional.
@@ -134,13 +134,13 @@ async def _rotular(casos: list[Caso]) -> str:
     nao ajuda ninguem a agir; "nao encontram o link da webconferencia"
     aponta para uma correcao.
     """
-    from app.llm import obter_provider
+    from app.llm import provider_ativo
 
     perguntas = [c.pergunta for c in casos if c.pergunta][:12]
     if not perguntas:
         return "duvidas sem texto registrado"
 
-    provider = obter_provider()
+    provider = provider_ativo()
     if provider.nome == "fallback":
         return f"duvidas sobre {casos[0].categoria}"
 

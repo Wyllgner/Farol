@@ -55,6 +55,38 @@ Outros alvos: `make migrate`, `make test`, `make lint`, `make reset`.
 
 ---
 
+## Segurança
+
+A chave do provedor de LLM nunca chega ao navegador, nunca entra no repositório
+e nunca aparece inteira em log ou resposta de erro. O risco maior, porém, não é
+o vazamento: é o **abuso**. Toda chamada de atendimento gasta crédito, e uma URL
+pública sem defesa é um cartão aberto. As camadas, de fora para dentro:
+
+| Camada | O que faz |
+|---|---|
+| **Partida** | Em `AMBIENTE=producao`, configuração insegura impede o processo de subir: sem token de administrador, com token curto ou com origem sem TLS, o FAROL não liga |
+| **Superfície restrita** | Console de Demonstração e "Como o FAROL decide" exigem `X-Farol-Token`. A proteção está na inclusão do router, não rota a rota: rota nova nasce protegida |
+| **Limite por origem** | 120 req/min no geral e 12/min nas rotas que falam com o provedor, contadas por origem para que um visitante abusivo não derrube o atendimento dos outros |
+| **Teto de gasto** | Orçamento diário de chamadas ao provedor. Estourado, o motor **degrada para o fallback determinístico** em vez de derrubar o serviço ou zerar o crédito, e o `/health` conta a verdade |
+| **Trilha de auditoria** | Toda requisição que muda estado entra no log append-only com ator, rota, resultado e duração. As recusas por excesso e as tentativas com token inválido entram também |
+| **Navegador** | CORS de lista fechada, `nosniff`, `X-Frame-Options`, HSTS em produção, `/docs` desativada em produção e nenhum *traceback* devolvido ao cliente |
+| **Webhook** | Com `WHATSAPP_APP_SECRET` definido, só passa payload assinado pela Meta (`X-Hub-Signature-256`) |
+
+**O ator da auditoria não guarda dado pessoal.** O IP entra como hash truncado
+com sal: a trilha preserva o que precisa (distinguir e correlacionar atores) e
+descarta o que não precisa (identificar a pessoa). LGPD por construção.
+
+**O portão no front é conveniência, não proteção.** Quem autoriza é o servidor,
+a cada requisição; a tela só evita mostrar uma superfície quebrada a quem não
+tem acesso. O token fica em `sessionStorage`, some quando a aba fecha e nunca
+viaja pela URL.
+
+Em desenvolvimento, `FAROL_ADMIN_TOKEN` vazio deixa as duas superfícies abertas
+na máquina local — de propósito: exigir segredo para rodar `make dev` empurraria
+a equipe a inventar um token fraco e fixo, que é pior do que não ter.
+
+---
+
 ## Decisões que valem explicação
 
 **O canal WhatsApp é uma réplica de interface, não a API oficial.** Ela fala com o backend pelo mesmo contrato de adaptador que a Cloud API usaria, recebendo payloads em formato de webhook. Trocar em produção é registrar outra implementação: a camada não é um atalho, é a arquitetura correta com implementação trocável.

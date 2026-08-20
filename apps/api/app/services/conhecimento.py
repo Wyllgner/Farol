@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.llm import obter_provider
+from app.llm import provider_ativo
 from app.models import Chunk, DocumentoConhecimento
 
 # Documentos de orientacao sao curtos. Quebramos por paragrafo e agrupamos
@@ -51,7 +51,7 @@ async def indexar(db: Session, documento: DocumentoConhecimento) -> int:
     if not textos:
         return 0
 
-    vetores = await obter_provider().embutir(textos)
+    vetores = await provider_ativo().embutir(textos)
     for ordem, (trecho, vetor) in enumerate(zip(textos, vetores, strict=True)):
         # Anexar pela relacao, e nao com db.add solto: assim o documento
         # ja sai daqui citavel na mesma sessao, sem depender de recarga.
@@ -82,7 +82,7 @@ async def buscar(
     Fonte vencida, rebaixada ou em revisao nunca entra: sem fonte valida
     e vigente, o FAROL escala em vez de responder.
     """
-    vetor = (await obter_provider().embutir([pergunta]))[0]
+    vetor = (await provider_ativo().embutir([pergunta]))[0]
     hoje = datetime.now(UTC).date()
 
     distancia = Chunk.vetor.cosine_distance(vetor).label("distancia")

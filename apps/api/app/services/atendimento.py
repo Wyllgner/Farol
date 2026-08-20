@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from app.enums import Canal, Categoria, DecisaoTriagem, SituacaoCaso
-from app.llm import obter_provider
+from app.llm import provider_ativo
 from app.models import Caso
 from app.services import (
     auditoria,
@@ -93,7 +93,7 @@ async def atender(
     pergunta: str,
     historico: list[tuple[str, str]] | None = None,
 ) -> Atendimento:
-    provider = obter_provider()
+    provider = provider_ativo()
     degradado = provider.nome == "fallback"
     historico = historico or []
 

@@ -17,6 +17,7 @@ import {
   IconeRadar,
 } from './componentes/Icones'
 import Marca from './componentes/Marca'
+import PortaoRestrito from './componentes/PortaoRestrito'
 import { Campo, ESTILO_ENTRADA } from './componentes/Ui'
 
 type Superficie =
@@ -193,15 +194,23 @@ export default function App() {
           {superficie === 'fila' && <FilaServidor />}
           {superficie === 'radar' && <RadarCausas />}
           {superficie === 'indicadores' && <Indicadores />}
-          {superficie === 'decide' && <ComoDecide />}
+          {/* As duas superficies restritas. O portao e conveniencia de
+              interface: quem protege de verdade e o 401 do servidor. */}
+          {superficie === 'decide' && (
+            <PortaoRestrito titulo="Como o FAROL decide">
+              <ComoDecide />
+            </PortaoRestrito>
+          )}
           {superficie === 'console' && (
-            <Console
-              handleAtual={handle}
-              aoEscolherParticipante={(telefone) => {
-                setHandle(telefone)
-                setSuperficie('whatsapp')
-              }}
-            />
+            <PortaoRestrito titulo="Console de Demonstração">
+              <Console
+                handleAtual={handle}
+                aoEscolherParticipante={(telefone) => {
+                  setHandle(telefone)
+                  setSuperficie('whatsapp')
+                }}
+              />
+            </PortaoRestrito>
           )}
         </main>
       </div>

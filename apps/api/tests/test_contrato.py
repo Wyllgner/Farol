@@ -241,7 +241,7 @@ async def test_aprovar_conhecimento_nasce_com_validade(db, monkeypatch):
             dimensao = len(db.scalar(select(__import__("app.models", fromlist=["Chunk"]).Chunk.vetor)))
             return [[0.0] * dimensao for _ in textos]
 
-    monkeypatch.setattr(conhecimento, "obter_provider", lambda: ProviderFalso())
+    monkeypatch.setattr(conhecimento, "provider_ativo", lambda: ProviderFalso())
 
     caso = _caso_respondido(db)
     caso.resposta_enviada = "Procedimento novo confirmado pela Secretaria."

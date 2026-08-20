@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { apiRestrita, jsonRestrito } from './api'
 import { CabecalhoConteudo, Cartao, Etiqueta, TituloSecao } from './componentes/Ui'
 
 type Regra = { situacao: string; criterio: string; acao: string }
@@ -45,8 +46,8 @@ export default function ComoDecide() {
 
   const carregar = useCallback(async () => {
     const [politica, ensaio] = await Promise.all([
-      fetch('/api/como-decide').then((r) => r.json()),
-      fetch('/api/ensaio').then((r) => r.json()),
+      jsonRestrito<Politica>('/api/como-decide'),
+      jsonRestrito<Ensaio>('/api/ensaio'),
     ])
     setPolitica(politica)
     setEnsaio(ensaio)
@@ -59,7 +60,7 @@ export default function ComoDecide() {
   async function alternar(categoria: string, liberar: boolean) {
     setOcupado(true)
     try {
-      await fetch(`/api/ensaio/${categoria}/${liberar ? 'liberar' : 'recolher'}`, {
+      await apiRestrita(`/api/ensaio/${categoria}/${liberar ? 'liberar' : 'recolher'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ servidor: SERVIDOR }),

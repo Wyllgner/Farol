@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.channels.base import InboundMessage, OutboundMessage
 from app.enums import Canal, Categoria, Direcao, SituacaoCaso
-from app.llm import obter_provider
+from app.llm import provider_ativo
 from app.models import Caso, Conversa, Mensagem
 from app.services import (
     agrupamento,
@@ -345,7 +345,7 @@ async def _reexplicar(db: Session, conversa: Conversa) -> OutboundMessage | None
     if esclarecimento.reescritas_ja_feitas(db, caso) >= esclarecimento.LIMITE_DE_REESCRITAS:
         return _escalar_por_incompreensao(db, conversa, caso)
 
-    provider = obter_provider()
+    provider = provider_ativo()
     gerada = await provider.gerar_ancorado(
         esclarecimento.pedido_de_reescrita(caso.resposta_enviada), trechos
     )
