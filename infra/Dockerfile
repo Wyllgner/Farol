@@ -33,7 +33,8 @@ COPY apps/api/pyproject.toml ./apps/api/
 COPY apps/api/app ./apps/api/app
 COPY apps/api/alembic ./apps/api/alembic
 COPY apps/api/alembic.ini ./apps/api/
-RUN pip install --no-cache-dir ./apps/api
+COPY infra/entrypoint.sh ./
+RUN pip install --no-cache-dir ./apps/api && chmod +x /app/entrypoint.sh
 
 COPY --from=web /web/dist ./apps/web/dist
 
@@ -45,12 +46,9 @@ USER farol
 ENV AMBIENTE=producao
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.getenv('PORT','8000') + '/health')"
 
 WORKDIR /app/apps/api
-# Sem --reload e com proxy-headers: atras do proxy da hospedagem, e o
-# X-Forwarded-For que diz de onde veio a requisicao. Sem isto, o limite por
-# origem contaria todo mundo como o mesmo ator, o do proxy.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
-     "--proxy-headers", "--forwarded-allow-ips", "*"]
+# O entrypoint aplica as migrations e so entao sobe a API. Ver infra/entrypoint.sh.
+CMD ["/app/entrypoint.sh"]

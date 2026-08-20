@@ -10,10 +10,11 @@ que gera 60 pessoas em estado saudavel nao exercita nada.
 
 import asyncio
 import random
+import sys
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app.db import SessionLocal
 from app.enums import Canal, NivelIdentidade, Perfil, SituacaoCertificado, SituacaoDocumento
@@ -326,7 +327,22 @@ async def semear() -> dict:
     }
 
 
+def _banco_vazio() -> bool:
+    with SessionLocal() as db:
+        return db.execute(select(func.count()).select_from(Participante)).scalar_one() == 0
+
+
 def main() -> None:
+    """`--se-vazio` semeia so quando nao ha mundo ainda.
+
+    E a forma usada na partida do container: sem a guarda, cada reinicio da
+    hospedagem duplicaria os 60 participantes, e o mundo da demonstracao
+    deixaria de ser o mundo desenhado.
+    """
+    if "--se-vazio" in sys.argv and not _banco_vazio():
+        print("Banco ja semeado: nada a fazer.")
+        return
+
     resultado = asyncio.run(semear())
     print("Semeadura concluida:")
     for chave, valor in resultado.items():

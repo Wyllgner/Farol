@@ -87,6 +87,24 @@ class Settings(BaseSettings):
     modo_ensaio: bool = True
 
     @cached_property
+    def url_do_banco(self) -> str:
+        """Normaliza a URL para o driver que o projeto usa.
+
+        As hospedagens entregam DATABASE_URL no formato historico
+        `postgres://` ou `postgresql://`, que o SQLAlchemy resolve para o
+        psycopg2 (nao instalado aqui). Corrigir no codigo evita depender de
+        alguem lembrar de reescrever a variavel a cada deploy.
+        """
+        url = self.database_url
+        for prefixo in ("postgresql+psycopg://", "postgresql+asyncpg://"):
+            if url.startswith(prefixo):
+                return url
+        for antigo in ("postgresql://", "postgres://"):
+            if url.startswith(antigo):
+                return "postgresql+psycopg://" + url[len(antigo) :]
+        return url
+
+    @cached_property
     def producao(self) -> bool:
         return self.ambiente.strip().lower() in {"producao", "prod", "production"}
 

@@ -200,3 +200,30 @@ def test_ator_nunca_carrega_o_ip_em_texto_claro(monkeypatch):
     ator = identificar_ator(_RequisicaoComIp("203.0.113.7"))
     assert "203.0.113.7" not in ator
     assert ator.startswith("anon:")
+
+
+# --------------------------------------------------------------------------
+# URL do banco entregue pela hospedagem
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "entregue",
+    [
+        "postgres://u:s@host:5432/farol",
+        "postgresql://u:s@host:5432/farol",
+    ],
+)
+def test_url_da_hospedagem_ganha_o_driver_certo(monkeypatch, entregue):
+    """Sem isto, o SQLAlchemy procura o psycopg2, que nao esta instalado."""
+    from app.config import Settings
+
+    s = Settings(database_url=entregue)
+    assert s.url_do_banco == "postgresql+psycopg://u:s@host:5432/farol"
+
+
+def test_url_ja_correta_nao_e_mexida():
+    from app.config import Settings
+
+    url = "postgresql+psycopg://u:s@host:5432/farol"
+    assert Settings(database_url=url).url_do_banco == url

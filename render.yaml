@@ -1,0 +1,80 @@
+# Blueprint do Render: um servico web e um Postgres.
+#
+# Como usar:
+#   1. render.com -> New -> Blueprint -> conecte este repositorio
+#   2. o Render le este arquivo e cria os dois servicos
+#   3. preencha as variaveis marcadas como sync: false (a chave da OpenAI)
+#
+# O que NAO fica aqui: nenhum segredo. Os tokens sao gerados pelo proprio
+# Render (generateValue) e a chave da OpenAI e digitada no painel. Segredo
+# em arquivo versionado e segredo publicado.
+
+databases:
+  - name: farol-db
+    databaseName: farol
+    user: farol
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: farol
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./infra/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: farol-db
+          property: connectionString
+
+      - key: AMBIENTE
+        value: producao
+      - key: CONFIAR_PROXY
+        value: "true"
+
+      # Gerados pelo Render na criacao e nunca vistos por ninguem ate serem
+      # lidos no painel. O de administrador e o que abre o Console.
+      - key: FAROL_ADMIN_TOKEN
+        generateValue: true
+      - key: FAROL_SAL_AUDITORIA
+        generateValue: true
+
+      # A URL completa do servico, com https. O Render so expoe host e
+      # porta separados, e a checagem de partida exige o esquema, entao
+      # este valor e digitado no painel: https://farol.onrender.com
+      # (ou o nome que o Render der, se "farol" ja estiver em uso).
+      #
+      # HOSTS_CONFIAVEIS fica de fora de proposito: o health check da
+      # plataforma bate no servico por um Host interno, e a lista o
+      # recusaria. Na frente do Render ja ha um proxy que so entrega o
+      # trafego do dominio correto.
+      - key: WEB_ORIGIN
+        sync: false
+
+      # A chave do provedor: preenchida no painel, nunca no repositorio.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: openai
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: LLM_MODEL_CLASSIFICACAO
+        value: gpt-5-nano
+      - key: LLM_MODEL_GERACAO
+        value: gpt-5-nano
+
+      # Teto apertado: no plano gratuito o custo que importa e o da chave.
+      - key: TETO_LLM_DIA
+        value: "500"
+      - key: LIMITE_LLM_MIN
+        value: "10"
+
+      # Semeia o mundo ficticio na primeira partida, e so nela.
+      - key: SEMEAR_NA_PARTIDA
+        value: "true"
+      - key: MODO_ENSAIO
+        value: "true"

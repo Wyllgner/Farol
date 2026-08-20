@@ -57,6 +57,31 @@ Outros alvos: `make migrate`, `make test`, `make lint`, `make reset`.
 
 ## Subindo em produção
 
+### Render (plano gratuito, sem cartão e sem domínio próprio)
+
+O repositório traz um `render.yaml`: o Render lê o arquivo e cria os dois
+serviços sozinho.
+
+1. Em [render.com](https://render.com) → **New** → **Blueprint** → conecte este
+   repositório.
+2. Preencha as duas variáveis que ele pedir: `OPENAI_API_KEY` e `WEB_ORIGIN`
+   (a URL que o Render acabou de dar, com `https://`).
+3. Espere o primeiro deploy. As migrations rodam na partida e o mundo fictício
+   é semeado uma única vez — a semeadura confere se o banco está vazio antes.
+4. Pegue o `FAROL_ADMIN_TOKEN` em **Environment**: o Render o gerou sozinho, e é
+   ele que abre o Console e a tela "Como decide".
+
+Link estável, HTTPS incluso: `https://farol.onrender.com`.
+
+**A contrapartida do plano gratuito:** o serviço adormece após 15 minutos sem
+acesso e o primeiro acesso seguinte leva ~50 segundos para responder. Abra o
+link alguns minutos antes de apresentar. O Postgres gratuito também expira em
+30 dias, o que basta para o hackathon e não serve para operação real.
+
+### Um host próprio
+
+
+
 Um host, um domínio, um comando. A imagem carrega o front construído dentro
 da API, que o serve: **uma origem só**, sem CORS a liberar, sem URL de API para
 configurar no build e com o WebSocket do espelho no mesmo certificado.
