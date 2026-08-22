@@ -30,7 +30,10 @@ type Superficie =
   | 'console'
 
 /** Participante fictício com 2FA pendente — cai direto no cenário útil. */
-const HANDLE_DEMO = '+556990000001'
+// Dra. Ana Beatriz Moraes: a personagem do roteiro de demonstracao. Ela e o
+// padrao para que ninguem precise digitar o numero no palco. Cada tecla
+// digitada aqui recria o espelho e, com ele, a conexao do canal.
+const HANDLE_DEMO = '+556990000000'
 
 const NAVEGACAO: {
   chave: Superficie
